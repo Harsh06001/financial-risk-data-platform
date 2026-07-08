@@ -1,0 +1,9 @@
+round,order_position,strategy,duration_seconds,parquet_files,output_bytes,verification
+1,1,baseline,9.4242,248,7860047,PASSED
+1,2,repartitioned,7.6424,31,5988785,PASSED
+2,1,repartitioned,7.5425,31,5988785,PASSED
+2,2,baseline,7.9328,248,7860047,PASSED
+3,1,baseline,7.9663,248,7860047,PASSED
+3,2,repartitioned,7.4759,31,5988785,PASSED
+4,1,repartitioned,7.4299,31,5988785,PASSED
+4,2,baseline,7.3957,248,7860047,PASSED

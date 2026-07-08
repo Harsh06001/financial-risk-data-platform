@@ -33,3 +33,9 @@ secrets/
 # IDE
 .vscode/
 .idea/
+
+# Benchmark console logs
+benchmarks/results/*.txt
+
+# Keep structured benchmark results
+!benchmarks/results/*.csv

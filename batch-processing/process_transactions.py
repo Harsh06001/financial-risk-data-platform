@@ -100,9 +100,15 @@ def clean_transactions(
 def write_processed_transactions(
     transactions_df: DataFrame,
     output_path: str,
+    write_strategy: str,
 ) -> None:
+    output_df = transactions_df
+
+    if write_strategy == "repartitioned":
+        output_df = transactions_df.repartition("event_date")
+
     (
-        transactions_df.write
+        output_df.write
         .mode("overwrite")
         .partitionBy("event_date")
         .parquet(output_path)
@@ -123,6 +129,14 @@ def parse_arguments() -> argparse.Namespace:
         default="data/processed/transactions",
         help="Output directory for processed Parquet data.",
     )
+
+    parser.add_argument(
+        "--write-strategy",
+        choices=["baseline", "repartitioned"],
+        default="repartitioned",
+        help="Physical write strategy used for processed Parquet output.",
+    )
+
     return parser.parse_args()
 
 
@@ -195,9 +209,12 @@ def main() -> None:
         print("WRITING PROCESSED DATA")
         print("-" * 50)
 
+        print(f"Write strategy: {args.write_strategy}")
+        
         write_processed_transactions(
             transactions_df=cleaned_df,
             output_path=args.output,
+            write_strategy=args.write_strategy,
         )
 
         print(f"Output path: {args.output}")
