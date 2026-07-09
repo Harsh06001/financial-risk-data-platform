@@ -9,11 +9,28 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 DATA_GENERATOR_DIR = PROJECT_ROOT / "data-generator"
-PROCESSING_SCRIPT = PROJECT_ROOT / "batch-processing" / "process_transactions.py"
+PROCESSING_SCRIPT = (
+    PROJECT_ROOT
+    / "batch-processing"
+    / "process_transactions.py"
+)
+
 VALIDATION_SCRIPT = (
     PROJECT_ROOT
     / "batch-processing"
     / "validate_processed_transactions.py"
+)
+
+FEATURE_BUILD_SCRIPT = (
+    PROJECT_ROOT
+    / "batch-processing"
+    / "build_risk_features.py"
+)
+
+FEATURE_VALIDATION_SCRIPT = (
+    PROJECT_ROOT
+    / "batch-processing"
+    / "validate_risk_features.py"
 )
 
 sys.path.insert(0, str(DATA_GENERATOR_DIR))
@@ -130,6 +147,94 @@ def validate_processed_output(
 
     run_command(command)
 
+def build_risk_features(
+    processed_input: Path,
+    feature_output: Path,
+    high_value_threshold: float,
+) -> None:
+    print()
+    print("STEP 4: BUILD RISK FEATURES")
+    print("-" * 50)
+
+    command = [
+        sys.executable,
+        str(FEATURE_BUILD_SCRIPT),
+        "--input",
+        str(processed_input),
+        "--output",
+        str(feature_output),
+        "--high-value-threshold",
+        str(high_value_threshold),
+    ]
+
+    run_command(command)
+
+def validate_risk_features(
+    feature_output: Path,
+    expected_transactions: int,
+    expected_event_dates: int | None,
+    expected_customers: int | None,
+    expected_merchants: int | None,
+    expected_segments: int | None,
+    expected_high_risk_transactions: int | None,
+    high_value_threshold: float,
+) -> None:
+    print()
+    print("STEP 5: VALIDATE RISK FEATURES")
+    print("-" * 50)
+
+    command = [
+        sys.executable,
+        str(FEATURE_VALIDATION_SCRIPT),
+        "--input",
+        str(feature_output),
+        "--expected-transactions",
+        str(expected_transactions),
+        "--high-value-threshold",
+        str(high_value_threshold),
+    ]
+
+    if expected_event_dates is not None:
+        command.extend(
+            [
+                "--expected-event-dates",
+                str(expected_event_dates),
+            ]
+        )
+
+    if expected_customers is not None:
+        command.extend(
+            [
+                "--expected-customers",
+                str(expected_customers),
+            ]
+        )
+
+    if expected_merchants is not None:
+        command.extend(
+            [
+                "--expected-merchants",
+                str(expected_merchants),
+            ]
+        )
+
+    if expected_segments is not None:
+        command.extend(
+            [
+                "--expected-segments",
+                str(expected_segments),
+            ]
+        )
+
+    if expected_high_risk_transactions is not None:
+        command.extend(
+            [
+                "--expected-high-risk-transactions",
+                str(expected_high_risk_transactions),
+            ]
+        )
+
+    run_command(command)
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -166,6 +271,47 @@ def parse_arguments() -> argparse.Namespace:
         help="Optional expected distinct event_date count.",
     )
 
+    parser.add_argument(
+        "--feature-output",
+        type=Path,
+        default=Path("data/analytics/risk_features"),
+        help="Output directory for generated risk feature tables.",
+    )
+
+    parser.add_argument(
+        "--high-value-threshold",
+        type=float,
+        default=1000.0,
+        help="Amount threshold used for high-value risk features.",
+    )
+
+    parser.add_argument(
+        "--expected-customers",
+        type=int,
+        default=None,
+        help="Optional expected number of customer feature rows.",
+    )
+
+    parser.add_argument(
+        "--expected-merchants",
+        type=int,
+        default=None,
+        help="Optional expected number of merchant feature rows.",
+    )
+
+    parser.add_argument(
+        "--expected-segments",
+        type=int,
+        default=None,
+        help="Optional expected number of segment summary rows.",
+    )
+
+    parser.add_argument(
+        "--expected-high-risk-transactions",
+        type=int,
+        default=None,
+        help="Optional expected number of high-risk transaction rows.",
+    )
     return parser.parse_args()
 
 
@@ -192,6 +338,24 @@ def main() -> None:
             expected_rows=total_rows,
             expected_event_dates=args.expected_event_dates,
         )
+        build_risk_features(
+            processed_input=args.output,
+            feature_output=args.feature_output,
+            high_value_threshold=args.high_value_threshold,
+        )
+
+        validate_risk_features(
+            feature_output=args.feature_output,
+            expected_transactions=total_rows,
+            expected_event_dates=args.expected_event_dates,
+            expected_customers=args.expected_customers,
+            expected_merchants=args.expected_merchants,
+            expected_segments=args.expected_segments,
+            expected_high_risk_transactions=(
+                args.expected_high_risk_transactions
+            ),
+            high_value_threshold=args.high_value_threshold,
+        )
     except subprocess.CalledProcessError as error:
         print()
         print(f"BATCH PIPELINE FAILED: command exited with {error.returncode}")
@@ -204,6 +368,7 @@ def main() -> None:
     print()
     print("BATCH PIPELINE COMPLETE")
     print(f"Processed output: {args.output}")
+    print(f"Risk feature output: {args.feature_output}")
 
 
 if __name__ == "__main__":
