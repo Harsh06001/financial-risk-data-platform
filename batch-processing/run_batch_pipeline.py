@@ -1,0 +1,210 @@
+import argparse
+import csv
+import glob
+import subprocess
+import sys
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+DATA_GENERATOR_DIR = PROJECT_ROOT / "data-generator"
+PROCESSING_SCRIPT = PROJECT_ROOT / "batch-processing" / "process_transactions.py"
+VALIDATION_SCRIPT = (
+    PROJECT_ROOT
+    / "batch-processing"
+    / "validate_processed_transactions.py"
+)
+
+sys.path.insert(0, str(DATA_GENERATOR_DIR))
+
+from validate_transactions import validate_file  # noqa: E402
+
+
+def resolve_raw_files(raw_input: str) -> list[Path]:
+    raw_pattern = Path(raw_input)
+
+    if not raw_pattern.is_absolute():
+        raw_pattern = PROJECT_ROOT / raw_pattern
+
+    return [
+        Path(path)
+        for path in sorted(glob.glob(str(raw_pattern)))
+    ]
+
+
+def count_csv_rows(input_path: Path) -> int:
+    with input_path.open("r", newline="", encoding="utf-8") as csv_file:
+        reader = csv.reader(csv_file)
+        next(reader, None)
+
+        return sum(1 for _ in reader)
+
+
+def run_command(command: list[str]) -> None:
+    print()
+    print("COMMAND")
+    print("-" * 50)
+    print(" ".join(command))
+
+    sys.stdout.flush()
+
+    subprocess.run(
+        command,
+        cwd=PROJECT_ROOT,
+        check=True,
+    )
+
+
+def validate_raw_files(raw_files: list[Path]) -> int:
+    total_rows = 0
+
+    print("STEP 1: VALIDATE RAW CSV FILES")
+    print("-" * 50)
+
+    for raw_file in raw_files:
+        validation_passed = validate_file(raw_file)
+
+        if not validation_passed:
+            raise RuntimeError(
+                f"Raw validation failed for {raw_file}."
+            )
+
+        total_rows += count_csv_rows(raw_file)
+        print()
+
+    print(f"Validated raw files: {len(raw_files):,}")
+    print(f"Validated raw rows: {total_rows:,}")
+
+    return total_rows
+
+
+def process_transactions(
+    raw_input: str,
+    output_path: Path,
+    write_strategy: str,
+) -> None:
+    print()
+    print("STEP 2: PROCESS TRANSACTIONS")
+    print("-" * 50)
+
+    command = [
+        sys.executable,
+        str(PROCESSING_SCRIPT),
+        "--input",
+        raw_input,
+        "--output",
+        str(output_path),
+        "--write-strategy",
+        write_strategy,
+    ]
+
+    run_command(command)
+
+
+def validate_processed_output(
+    output_path: Path,
+    expected_rows: int,
+    expected_event_dates: int | None,
+) -> None:
+    print()
+    print("STEP 3: VALIDATE PROCESSED PARQUET")
+    print("-" * 50)
+
+    command = [
+        sys.executable,
+        str(VALIDATION_SCRIPT),
+        "--input",
+        str(output_path),
+        "--expected-rows",
+        str(expected_rows),
+    ]
+
+    if expected_event_dates is not None:
+        command.extend(
+            [
+                "--expected-event-dates",
+                str(expected_event_dates),
+            ]
+        )
+
+    run_command(command)
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the local batch transaction pipeline with raw and "
+            "processed data validation."
+        )
+    )
+
+    parser.add_argument(
+        "--raw-input",
+        default="data/raw/transactions/*.csv",
+        help="Input path or glob for raw transaction CSV files.",
+    )
+
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/processed/transactions"),
+        help="Output directory for processed Parquet data.",
+    )
+
+    parser.add_argument(
+        "--write-strategy",
+        choices=["baseline", "repartitioned"],
+        default="repartitioned",
+        help="Physical write strategy used for processed Parquet output.",
+    )
+
+    parser.add_argument(
+        "--expected-event-dates",
+        type=int,
+        default=None,
+        help="Optional expected distinct event_date count.",
+    )
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_arguments()
+
+    raw_files = resolve_raw_files(args.raw_input)
+
+    if not raw_files:
+        print(f"No raw CSV files matched: {args.raw_input}")
+        sys.exit(1)
+
+    try:
+        total_rows = validate_raw_files(raw_files)
+
+        process_transactions(
+            raw_input=args.raw_input,
+            output_path=args.output,
+            write_strategy=args.write_strategy,
+        )
+
+        validate_processed_output(
+            output_path=args.output,
+            expected_rows=total_rows,
+            expected_event_dates=args.expected_event_dates,
+        )
+    except subprocess.CalledProcessError as error:
+        print()
+        print(f"BATCH PIPELINE FAILED: command exited with {error.returncode}")
+        sys.exit(error.returncode)
+    except RuntimeError as error:
+        print()
+        print(f"BATCH PIPELINE FAILED: {error}")
+        sys.exit(1)
+
+    print()
+    print("BATCH PIPELINE COMPLETE")
+    print(f"Processed output: {args.output}")
+
+
+if __name__ == "__main__":
+    main()
