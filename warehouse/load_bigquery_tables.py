@@ -7,6 +7,8 @@ DATASET_ID = "risk_analytics"
 
 ANALYTICS_BUCKET = "risk-data-platform-npg-2026-analytics-data"
 RISK_FEATURES_URI = f"gs://{ANALYTICS_BUCKET}/risk_features"
+PROCESSED_BUCKET = "risk-data-platform-npg-2026-processed-data"
+PROCESSED_TRANSACTIONS_URI = f"gs://{PROCESSED_BUCKET}/transactions"
 
 def run_command(command: list[str]) -> None:
     print(f"\nRunning: {' '.join(command)}")
@@ -37,6 +39,14 @@ HIGH_RISK_SOURCE_URI = (
 
 HIGH_RISK_SOURCE_PREFIX = (
     f"{RISK_FEATURES_URI}/{HIGH_RISK_TABLE}/"
+)
+
+PROCESSED_TRANSACTIONS_TABLE = "processed_transactions"
+PROCESSED_TRANSACTIONS_SOURCE_URI = (
+    f"{PROCESSED_TRANSACTIONS_URI}/*.parquet"
+)
+PROCESSED_TRANSACTIONS_SOURCE_PREFIX = (
+    f"{PROCESSED_TRANSACTIONS_URI}/"
 )
 
 
@@ -88,6 +98,30 @@ def load_high_risk_table() -> None:
     run_command(command)
 
 
+def load_processed_transactions() -> None:
+    destination_table = f"{DATASET_ID}.{PROCESSED_TRANSACTIONS_TABLE}"
+    command = [
+        "bq",
+        f"--project_id={PROJECT_ID}",
+        f"--location={LOCATION}",
+        "load",
+        "--replace",
+        "--source_format=PARQUET",
+        "--hive_partitioning_mode=AUTO",
+        (
+            "--hive_partitioning_source_uri_prefix="
+            f"{PROCESSED_TRANSACTIONS_SOURCE_PREFIX}"
+        ),
+        "--time_partitioning_type=DAY",
+        "--time_partitioning_field=event_date",
+        destination_table,
+        PROCESSED_TRANSACTIONS_SOURCE_URI,
+    ]
+
+    run_command(command)
+
+
 if __name__ == "__main__":
+    load_processed_transactions()
     load_standard_tables()
     load_high_risk_table()

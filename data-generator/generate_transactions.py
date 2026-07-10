@@ -2,7 +2,7 @@ import argparse
 import csv
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 
@@ -44,19 +44,26 @@ FIELDNAMES = [
     "device_id",
     "is_fraud",
 ]
+TRANSACTION_NAMESPACE = uuid.UUID("b68dbb32-b9d8-4d3a-a38d-13f956f71f9e")
 
 
-def generate_transaction() -> dict:
-    country = random.choice(list(COUNTRIES.keys()))
+def generate_transaction(
+    rng: random.Random,
+    transaction_index: int,
+    seed: int,
+    start_date: date,
+    event_dates: int,
+) -> dict:
+    country = rng.choice(list(COUNTRIES.keys()))
     currency = COUNTRIES[country]
 
     amount = round(
-        min(random.lognormvariate(3.5, 1.0), 5000),
+        min(rng.lognormvariate(3.5, 1.0), 5000),
         2,
     )
 
-    merchant_category = random.choice(MERCHANT_CATEGORIES)
-    payment_method = random.choice(PAYMENT_METHODS)
+    merchant_category = rng.choice(MERCHANT_CATEGORIES)
+    payment_method = rng.choice(PAYMENT_METHODS)
 
     fraud_probability = 0.01
 
@@ -69,33 +76,49 @@ def generate_transaction() -> dict:
     if payment_method == "bank_transfer":
         fraud_probability += 0.03
 
-    is_fraud = random.random() < fraud_probability
+    is_fraud = rng.random() < fraud_probability
 
-    event_timestamp = datetime.now(timezone.utc) - timedelta(
-        seconds=random.randint(0, 30 * 24 * 60 * 60)
+    event_timestamp = datetime.combine(
+        start_date + timedelta(days=rng.randrange(event_dates)),
+        time.min,
+        tzinfo=timezone.utc,
+    ) + timedelta(
+        seconds=rng.randrange(24 * 60 * 60)
     )
 
     return {
-        "transaction_id": str(uuid.uuid4()),
+        "transaction_id": str(
+            uuid.uuid5(
+                TRANSACTION_NAMESPACE,
+                f"seed={seed};row={transaction_index}",
+            )
+        ),
         "event_timestamp": event_timestamp.isoformat(),
-        "customer_id": f"CUST_{random.randint(1, 500):06d}",
-        "merchant_id": f"MERCH_{random.randint(1, 100):06d}",
+        "customer_id": f"CUST_{rng.randint(1, 500):06d}",
+        "merchant_id": f"MERCH_{rng.randint(1, 100):06d}",
         "amount": amount,
         "currency": currency,
         "country": country,
         "merchant_category": merchant_category,
         "payment_method": payment_method,
-        "device_id": f"DEV_{random.randint(1, 750):06d}",
+        "device_id": f"DEV_{rng.randint(1, 750):06d}",
         "is_fraud": is_fraud,
     }
 
 
-def generate_dataset(row_count: int, output_dir: Path) -> Path:
+def generate_dataset(
+    row_count: int,
+    output_dir: Path,
+    seed: int,
+    start_date: date,
+    event_dates: int,
+    output_name: str | None = None,
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-    output_path = output_dir / f"transactions_{timestamp}.csv"
+    output_path = output_dir / (
+        output_name or f"transactions_{row_count}_seed_{seed}.csv"
+    )
+    rng = random.Random(seed)
 
     fraud_count = 0
 
@@ -103,8 +126,14 @@ def generate_dataset(row_count: int, output_dir: Path) -> Path:
         writer = csv.DictWriter(csv_file, fieldnames=FIELDNAMES)
         writer.writeheader()
 
-        for _ in range(row_count):
-            transaction = generate_transaction()
+        for transaction_index in range(row_count):
+            transaction = generate_transaction(
+                rng=rng,
+                transaction_index=transaction_index,
+                seed=seed,
+                start_date=start_date,
+                event_dates=event_dates,
+            )
             writer.writerow(transaction)
 
             if transaction["is_fraud"]:
@@ -134,6 +163,26 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--start-date",
+        type=date.fromisoformat,
+        default=date(2026, 1, 1),
+        help="First YYYY-MM-DD date represented in the generated data.",
+    )
+
+    parser.add_argument(
+        "--event-dates",
+        type=int,
+        default=31,
+        help="Number of consecutive event dates represented.",
+    )
+
+    parser.add_argument(
+        "--output-name",
+        default=None,
+        help="Optional deterministic CSV filename.",
+    )
+
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("data/raw/transactions"),
@@ -156,11 +205,16 @@ def main() -> None:
     if args.rows <= 0:
         raise ValueError("--rows must be greater than zero.")
 
-    random.seed(args.seed)
+    if args.event_dates <= 0:
+        raise ValueError("--event-dates must be greater than zero.")
 
     generate_dataset(
         row_count=args.rows,
         output_dir=args.output_dir,
+        seed=args.seed,
+        start_date=args.start_date,
+        event_dates=args.event_dates,
+        output_name=args.output_name,
     )
 
 

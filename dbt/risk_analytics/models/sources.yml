@@ -10,3 +10,4 @@ sources:
       - name: merchant_risk_features
       - name: segment_risk_summary
       - name: high_risk_transactions
+      - name: processed_transactions

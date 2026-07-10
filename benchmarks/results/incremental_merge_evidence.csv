@@ -1,0 +1,2 @@
+event_date,baseline_rows,first_merge_rows,same_date_rerun_rows,late_merge_rows,rows_added_by_late_batch,duplicate_rows,late_transaction_rows,corrected_transaction_rows,verification
+2026-07-08,2640,2640,2640,2641,1,0,1,1,PASSED

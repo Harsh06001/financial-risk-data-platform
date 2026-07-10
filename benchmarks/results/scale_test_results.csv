@@ -1,0 +1,4 @@
+requested_rows,actual_input_rows,output_rows,distinct_event_dates,processing_runtime_seconds,rows_per_second,parquet_file_count,output_bytes,reconciliation,status,failure,seed,write_strategy,spark_master,spark_sql_session_timezone,spark_version,python_version,java_version,cpu_count,platform
+1000000,1000000,1000000,31,14.7662,67722.09,31,52784849,PASSED,PASSED,,202611,repartitioned,local[*],UTC,4.1.2,3.14.5,"openjdk version ""17.0.19"" 2026-04-21",8,macOS-26.2-arm64-arm-64bit-Mach-O
+5000000,5000000,5000000,31,29.4523,169766.16,31,243147767,PASSED,PASSED,,202611,repartitioned,local[*],UTC,4.1.2,3.14.5,"openjdk version ""17.0.19"" 2026-04-21",8,macOS-26.2-arm64-arm-64bit-Mach-O
+10000000,10000000,10000000,31,45.4968,219795.88,31,470591204,PASSED,PASSED,,202611,repartitioned,local[*],UTC,4.1.2,3.14.5,"openjdk version ""17.0.19"" 2026-04-21",8,macOS-26.2-arm64-arm-64bit-Mach-O

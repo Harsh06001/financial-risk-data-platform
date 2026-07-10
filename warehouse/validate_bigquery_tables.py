@@ -44,6 +44,55 @@ def require(condition: bool, table: str, contract: str, expected: object, actual
         raise ValidationError(table, contract, expected, actual)
 
 
+def validate_processed_transactions() -> None:
+    table = "processed_transactions"
+    query = f"""
+    SELECT
+      COUNT(*) AS row_count,
+      COUNT(DISTINCT transaction_id) AS unique_transaction_ids,
+      COUNTIF(transaction_id IS NULL) AS null_transaction_ids,
+      COUNTIF(event_timestamp IS NULL) AS null_event_timestamps,
+      COUNTIF(event_date IS NULL) AS null_event_dates,
+      COUNTIF(customer_id IS NULL) AS null_customer_ids,
+      COUNTIF(merchant_id IS NULL) AS null_merchant_ids,
+      COUNTIF(amount IS NULL OR amount <= 0) AS invalid_amount_rows,
+      COUNTIF(event_hour IS NULL OR event_hour < 0 OR event_hour > 23) AS invalid_event_hour_rows,
+      COUNTIF(is_fraud) AS fraud_rows,
+      COUNT(DISTINCT event_date) AS distinct_event_dates,
+      MIN(event_date) AS min_event_date,
+      MAX(event_date) AS max_event_date
+    FROM `{PROJECT_ID}.{DATASET_ID}.{table}`
+    """
+    row = run_query(query)[0]
+
+    require(int(row["row_count"]) == 100350, table, "row count", 100350, int(row["row_count"]))
+    require(int(row["unique_transaction_ids"]) == 100350, table, "unique transaction IDs", 100350, int(row["unique_transaction_ids"]))
+    require(int(row["null_transaction_ids"]) == 0, table, "null transaction IDs", 0, int(row["null_transaction_ids"]))
+    require(int(row["null_event_timestamps"]) == 0, table, "null event timestamps", 0, int(row["null_event_timestamps"]))
+    require(int(row["null_event_dates"]) == 0, table, "null event dates", 0, int(row["null_event_dates"]))
+    require(int(row["null_customer_ids"]) == 0, table, "null customer IDs", 0, int(row["null_customer_ids"]))
+    require(int(row["null_merchant_ids"]) == 0, table, "null merchant IDs", 0, int(row["null_merchant_ids"]))
+    require(int(row["invalid_amount_rows"]) == 0, table, "positive amounts", 0, int(row["invalid_amount_rows"]))
+    require(int(row["invalid_event_hour_rows"]) == 0, table, "event hour range", 0, int(row["invalid_event_hour_rows"]))
+    require(int(row["fraud_rows"]) == 3261, table, "fraud row count", 3261, int(row["fraud_rows"]))
+    require(int(row["distinct_event_dates"]) == 31, table, "distinct event dates", 31, int(row["distinct_event_dates"]))
+    require(row["min_event_date"] == "2026-06-08", table, "minimum event date", "2026-06-08", row["min_event_date"])
+    require(row["max_event_date"] == "2026-07-08", table, "maximum event date", "2026-07-08", row["max_event_date"])
+
+    partition_query = f"""
+    SELECT COUNT(*) AS partition_count
+    FROM `{PROJECT_ID}.{DATASET_ID}.INFORMATION_SCHEMA.PARTITIONS`
+    WHERE table_name = '{table}'
+    """
+    partition_count = int(run_query(partition_query)[0]["partition_count"])
+    require(partition_count == 31, table, "partition count", 31, partition_count)
+    print(
+        f"Validated {table}: row count={row['row_count']}, "
+        f"unique transactions={row['unique_transaction_ids']}, "
+        f"partitions={partition_count}"
+    )
+
+
 def validate_daily_transaction_summary() -> None:
     table = "daily_transaction_summary"
     query = f"""
@@ -222,6 +271,7 @@ def validate_high_risk_transactions() -> None:
 
 def main() -> None:
     print("Running BigQuery warehouse validation...")
+    validate_processed_transactions()
     validate_daily_transaction_summary()
     validate_customer_risk_features()
     validate_merchant_risk_features()

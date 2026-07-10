@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: fct_transactions
+    description: One row per processed financial transaction; incrementally merged by transaction_id.
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: event_date
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: event_date
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_id
+      - name: merchant_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_merchant')
+                field: merchant_id
+  - name: dim_customer
+    description: Current-state customer dimension at one row per natural customer_id.
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_merchant
+    description: Current-state merchant dimension at one row per natural merchant_id.
+    columns:
+      - name: merchant_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_date
+    description: Calendar dimension at one row per observed transaction event_date.
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+          - unique

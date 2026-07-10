@@ -1,4 +1,6 @@
 import argparse
+import os
+from datetime import date
 from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
@@ -37,12 +39,20 @@ RAW_TRANSACTION_SCHEMA = StructType(
 
 
 def create_spark_session() -> SparkSession:
-    return (
+    builder = (
         SparkSession.builder
         .appName("FinancialRiskBatchProcessing")
         .master("local[*]")
-        .getOrCreate()
     )
+    session_timezone = os.environ.get(
+        "SPARK_SQL_SESSION_TIMEZONE",
+        "UTC",
+    )
+    builder = builder.config(
+        "spark.sql.session.timeZone",
+        session_timezone,
+    )
+    return builder.getOrCreate()
 
 
 def read_raw_transactions(
@@ -101,18 +111,32 @@ def write_processed_transactions(
     transactions_df: DataFrame,
     output_path: str,
     write_strategy: str,
+    dynamic_partition_overwrite: bool = False,
 ) -> None:
     output_df = transactions_df
 
     if write_strategy == "repartitioned":
         output_df = transactions_df.repartition("event_date")
 
-    (
-        output_df.write
-        .mode("overwrite")
-        .partitionBy("event_date")
-        .parquet(output_path)
-    )
+    writer = output_df.write.mode("overwrite")
+
+    if dynamic_partition_overwrite:
+        output_df.sparkSession.conf.set(
+            "spark.sql.sources.partitionOverwriteMode",
+            "dynamic",
+        )
+        writer = writer.option("partitionOverwriteMode", "dynamic")
+
+    writer.partitionBy("event_date").parquet(output_path)
+
+
+def parse_event_date(value: str) -> str:
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "event date must use YYYY-MM-DD format"
+        ) from exc
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -137,6 +161,16 @@ def parse_arguments() -> argparse.Namespace:
         help="Physical write strategy used for processed Parquet output.",
     )
 
+    parser.add_argument(
+        "--event-date",
+        type=parse_event_date,
+        default=None,
+        help=(
+            "Optional event date to process. When supplied, only that date is "
+            "written using dynamic partition overwrite."
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -152,9 +186,21 @@ def main() -> None:
             input_path=args.input,
         )
         processed_df = transform_transactions(transactions_df)
-        cleaned_df = clean_transactions(processed_df)
-        raw_count = transactions_df.count()
+        candidate_df = processed_df
+
+        if args.event_date is not None:
+            candidate_df = processed_df.filter(
+                col("event_date") == args.event_date
+            )
+
+        cleaned_df = clean_transactions(candidate_df)
+        raw_count = candidate_df.count()
         cleaned_count = cleaned_df.count()
+
+        if args.event_date is not None and raw_count == 0:
+            raise RuntimeError(
+                f"No source records exist for event_date={args.event_date}."
+            )
 
         rejected_count = raw_count - cleaned_count
 
@@ -168,6 +214,7 @@ def main() -> None:
         print("RAW DATASET SUMMARY")
         print("-" * 50)
         print(f"Input path: {args.input}")
+        print(f"Event date filter: {args.event_date or 'FULL DATASET'}")
         print(f"Total rows: {raw_count:,}")
 
         print()
@@ -210,17 +257,27 @@ def main() -> None:
         print("-" * 50)
 
         print(f"Write strategy: {args.write_strategy}")
+        print(
+            "Partition overwrite mode: "
+            f"{'dynamic' if args.event_date else 'full'}"
+        )
         
         write_processed_transactions(
             transactions_df=cleaned_df,
             output_path=args.output,
             write_strategy=args.write_strategy,
+            dynamic_partition_overwrite=args.event_date is not None,
         )
 
         print(f"Output path: {args.output}")
         print("Write status: COMPLETE")
 
         reloaded_df = spark.read.parquet(args.output)
+
+        if args.event_date is not None:
+            reloaded_df = reloaded_df.filter(
+                col("event_date") == args.event_date
+            )
         reloaded_count = reloaded_df.count()
 
         print()

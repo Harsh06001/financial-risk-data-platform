@@ -23,7 +23,10 @@ def list_event_date_partitions(parquet_inventory: set[str]) -> set[str]:
     }
 
 
-def list_gcs_parquet_inventory(destination_uri: str) -> set[str]:
+def list_gcs_parquet_inventory(
+    destination_uri: str,
+    allow_missing: bool = False,
+) -> set[str]:
     command = [
         "gcloud",
         "storage",
@@ -36,8 +39,18 @@ def list_gcs_parquet_inventory(destination_uri: str) -> set[str]:
         command,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+
+    if completed.returncode != 0:
+        if allow_missing and "matched no objects" in completed.stderr:
+            return set()
+        raise subprocess.CalledProcessError(
+            completed.returncode,
+            command,
+            output=completed.stdout,
+            stderr=completed.stderr,
+        )
 
     prefix = destination_uri.rstrip("/") + "/"
     inventory: set[str] = set()

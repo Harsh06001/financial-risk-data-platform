@@ -1,5 +1,6 @@
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
@@ -111,6 +112,7 @@ def validate_processed_data(
     input_path: Path,
     expected_rows: int | None,
     expected_event_dates: int | None,
+    event_date: str | None = None,
 ) -> bool:
     errors: list[str] = []
 
@@ -121,6 +123,7 @@ def validate_processed_data(
     print("PROCESSED DATA VALIDATION")
     print("-" * 50)
     print(f"Input path: {input_path}")
+    print(f"Event date filter: {event_date or 'FULL DATASET'}")
 
     if schema_errors:
         print()
@@ -133,6 +136,11 @@ def validate_processed_data(
         print()
         print("VALIDATION FAILED")
         return False
+
+    if event_date is not None:
+        transactions_df = transactions_df.filter(
+            col("event_date") == event_date
+        )
 
     total_rows = transactions_df.count()
 
@@ -194,11 +202,21 @@ def validate_processed_data(
     )
 
     partition_dates = read_partition_dates(input_path)
+    if event_date is not None:
+        partition_dates = {
+            partition_date
+            for partition_date in partition_dates
+            if partition_date == event_date
+        }
     dataframe_dates = read_dataframe_dates(transactions_df)
 
+    parquet_inventory_root = (
+        input_path / f"event_date={event_date}"
+        if event_date is not None
+        else input_path
+    )
     parquet_file_count = sum(
-        1
-        for _ in input_path.rglob("*.parquet")
+        1 for _ in parquet_inventory_root.rglob("*.parquet")
     )
 
     print(f"Total rows: {total_rows:,}")
@@ -296,6 +314,15 @@ def validate_processed_data(
     return True
 
 
+def parse_event_date(value: str) -> str:
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "event date must use YYYY-MM-DD format"
+        ) from exc
+
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate processed transaction Parquet output."
@@ -322,6 +349,13 @@ def parse_arguments() -> argparse.Namespace:
         help="Optional expected distinct event_date count.",
     )
 
+    parser.add_argument(
+        "--event-date",
+        type=parse_event_date,
+        default=None,
+        help="Optional YYYY-MM-DD event date to validate in isolation.",
+    )
+
     return parser.parse_args()
 
 
@@ -345,6 +379,7 @@ def main() -> None:
             input_path=args.input,
             expected_rows=args.expected_rows,
             expected_event_dates=args.expected_event_dates,
+            event_date=args.event_date,
         )
     finally:
         spark.stop()

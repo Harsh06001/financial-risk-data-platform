@@ -1,115 +1,85 @@
 # Financial Risk Data Platform
 
-This repository implements a batch-oriented financial risk data platform on Google Cloud Platform using Terraform, Google Cloud Storage, PySpark, BigQuery, dbt, and Airflow.
+A batch-oriented GCP data engineering portfolio project with schema-enforced PySpark processing, partitioned Parquet, guarded GCS synchronization, native BigQuery warehousing, dbt dimensional modeling, Airflow orchestration, and Terraform-managed infrastructure.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Raw CSV transactions] --> B[PySpark processing and risk features]
-    B --> C[Processed and analytics Parquet in GCS]
-    C --> D[BigQuery native warehouse tables]
-    D --> E[dbt staging views and marts]
-    C -. demonstration query path .-> F[BigQuery external table]
+    A[Raw CSV] --> B{Processing mode}
+    B -->|Full refresh| C[PySpark ETL + risk features]
+    B -->|--event-date| D[One-date PySpark ETL]
+    C --> E[Processed + analytics Parquet]
+    D --> F[Selected processed partition]
+    E --> G[Guarded GCS mirrors]
+    F --> H[Exact GCS partition sync]
+    G --> I[BigQuery native tables]
+    H --> J[Staging table + MERGE]
+    J --> I
+    I --> K[dbt staging]
+    K --> L[fct_transactions + dimensions]
+    L --> M[Risk marts]
+    E -.-> N[BigQuery external-table demonstration]
 ```
 
-The production dbt models read the five native BigQuery warehouse tables loaded by `warehouse/load_bigquery_tables.py`. The Terraform-managed `daily_transaction_summary_external` table is intentionally retained as an architectural demonstration of querying analytics Parquet directly in GCS without loading it into native BigQuery storage; dbt does not use that external table.
+The dimensional core contains `fct_transactions` at one row per `transaction_id`, `dim_customer` at one row per `customer_id`, `dim_merchant` at one row per `merchant_id`, and `dim_date` at one row per observed `event_date`. Stable source natural keys are used; v1.1 intentionally models current state rather than SCD Type 2 history.
 
-## Repository Structure
+## Run the pipelines
 
-- `batch-processing/`: PySpark ETL, feature generation, and validation
-- `cloud/`: safe mirror synchronization to narrow GCS prefixes
-- `warehouse/`: BigQuery native-table loading and validation
-- `pipeline/`: fail-fast end-to-end cloud pipeline runner
-- `dbt/risk_analytics/`: dbt staging models, marts, and data tests
-- `airflow/dags/`: daily Airflow orchestration
-- `infrastructure/terraform/`: GCP infrastructure configuration
+Prerequisites are authenticated Google Application Default Credentials, provisioned infrastructure, `.venv` for the Python/Spark requirements, and `.venv-dbt2` for `requirements-dbt.txt`. Terraform execution is separate from pipeline execution.
 
-## End-to-End Pipeline
-
-`pipeline/run_cloud_pipeline.py` runs these seven stages in order and stops immediately if any stage fails:
-
-1. Run the local batch pipeline, including raw/processed/feature validation
-2. Mirror processed data to GCS
-3. Mirror analytics data to GCS
-4. Load native BigQuery warehouse tables
-5. Validate native BigQuery warehouse tables
-6. Run all dbt models
-7. Run all dbt tests
+Full cloud pipeline—local batch validation, narrow GCS mirrors, native BigQuery loads and validation, then dbt run/test:
 
 ```bash
 .venv/bin/python pipeline/run_cloud_pipeline.py
 ```
 
-By default, dbt is resolved at `.venv-dbt2/bin/dbt`. To use another compatible executable:
+One-date incremental pipeline—dynamic partition overwrite, exact partition sync, BigQuery staging-and-`MERGE`, then dbt run/test:
 
 ```bash
-DBT_EXECUTABLE=/path/to/dbt .venv/bin/python pipeline/run_cloud_pipeline.py
+.venv/bin/python pipeline/run_incremental_pipeline.py --event-date 2026-07-08
 ```
 
-## Reproducible dbt Setup
+The same event date can be rerun safely. The warehouse `MERGE` matches on `transaction_id`, updates matched rows, and inserts new rows.
 
-The main PySpark environment uses Python 3.14, while the verified dbt environment uses Python 3.11. Create dbt's environment separately; virtual environments are ignored and must not be committed.
-
-```bash
-python3.11 -m venv .venv-dbt2
-.venv-dbt2/bin/python -m pip install --upgrade pip
-.venv-dbt2/bin/python -m pip install -r requirements-dbt.txt
-
-.venv-dbt2/bin/dbt debug --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
-.venv-dbt2/bin/dbt run --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
-.venv-dbt2/bin/dbt test --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
-```
-
-The repository profile uses OAuth and contains no credential or private-key path. It supports these optional environment variables:
-
-- `GCP_PROJECT_ID` (default `risk-data-platform-npg-2026`)
-- `GCP_LOCATION` (default `us-central1`)
-- `DBT_DATASET` (default `risk_analytics`)
-
-Google Application Default Credentials or an authenticated gcloud session must already be available.
-
-## Airflow DAG
-
-The daily `risk_pipeline_dag` has one linear, fail-fast task chain. Each task calls an existing project script or dbt command rather than duplicating transformation logic:
-
-```text
-run_local_batch_pipeline
-  -> sync_processed_to_gcs
-  -> sync_analytics_to_gcs
-  -> load_bigquery_tables
-  -> validate_bigquery_tables
-  -> dbt_run
-  -> dbt_test
-```
-
-Airflow uses `.venv-dbt2/bin/dbt` by default and also honors `DBT_EXECUTABLE`.
-
-## Warehouse Validation
+Useful verification commands:
 
 ```bash
 .venv/bin/python warehouse/validate_bigquery_tables.py
+.venv-dbt2/bin/dbt debug --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
+.venv-dbt2/bin/dbt run --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
+.venv-dbt2/bin/dbt test --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
+.venv/bin/python benchmarks/run_scale_tests.py --sizes 1000000 5000000 10000000
 ```
 
-The validator checks row counts, table grains, null/range contracts, transaction reconciliation, high-risk classification logic, and high-risk partition metadata.
+`DBT_EXECUTABLE` can point the pipeline runners and Airflow DAG to another compatible dbt executable. The committed dbt profile uses OAuth and environment-variable configuration; it contains no key file or credential.
 
-## Verified Spark Benchmark Results
+## Verified evidence
 
-The tracked evidence is in `benchmarks/results/batch_100k_strategy_comparison.csv` and `benchmarks/results/batch_write_file_count_investigation.md`.
+Canonical validation reconciles 100,350 processed rows and unique transaction IDs across 31 event dates (2026-06-08 through 2026-07-08), including 3,261 fraud rows. Five feature tables and the native `processed_transactions` table feed the dbt layers.
 
-- Input rows: 100350
-- Output rows: 100350
-- Distinct event dates: 31
-- Baseline median runtime: 7.95s
-- Repartitioned median runtime: 7.51s
-- Runtime improvement: 5.5%
-- Baseline Parquet files: 248
-- Repartitioned Parquet files: 31
-- File reduction: 87.5%
-- Baseline size: 7.86MB
-- Repartitioned size: 5.99MB
-- Size reduction: 23.8%
+The tracked 100,350-row Spark strategy comparison reduced Parquet output from 248 to 31 files (87.5%), reduced output size from 7.86 MB to 5.99 MB (23.8%), and changed median local runtime from 7.95 to 7.51 seconds (5.5%). See [`benchmarks/results/batch_100k_strategy_comparison.csv`](benchmarks/results/batch_100k_strategy_comparison.csv).
 
-## Future Production Hardening
+Separate deterministic **local synthetic scale tests** completed and reconciled:
 
-Atomic warehouse generation swapping and checksum-based GCS content verification are intentionally outside project v1. Current synchronization validates exact relative Parquet inventories and rejects incomplete or empty local sources before enabling deletion.
+| Rows | Dates | Runtime | Rows/s | Parquet files | Output bytes |
+|---:|---:|---:|---:|---:|---:|
+| 1,000,000 | 31 | 14.7662s | 67,722.09 | 31 | 52,784,849 |
+| 5,000,000 | 31 | 29.4523s | 169,766.16 | 31 | 243,147,767 |
+| 10,000,000 | 31 | 45.4968s | 219,795.88 | 31 | 470,591,204 |
+
+These are local `Spark local[*]` results on the recorded 8-CPU environment, not production or distributed-cluster claims. Evidence is in [`scale_test_results.csv`](benchmarks/results/scale_test_results.csv) and [`scale_test_report.md`](benchmarks/results/scale_test_report.md). The isolated late-data test evidence is in [`incremental_merge_evidence.csv`](benchmarks/results/incremental_merge_evidence.csv).
+
+## Documentation
+
+Start with the [documentation index](docs/README.md) or the guided [learning path](docs/LEARNING_PATH.md). The deep documentation covers architecture, contracts, every major file and function, Spark internals, GCS safety, BigQuery, dimensional modeling, incremental MERGE behavior, dbt, Airflow, scale tests, failure scenarios, production trade-offs, interview preparation, and claim-safe [resume evidence](docs/resume/verified-project-bullets.md).
+
+## Known limitations
+
+- This is a local-development portfolio system, not a production SLA or distributed-cluster benchmark.
+- Full GCS synchronization is mirror-style rather than an atomic generation swap; its delete-enabled operation is restricted by exact bucket/prefix guards and inventory checks.
+- Inventory validation compares object paths and counts, not content checksums.
+- The incremental transaction fact uses a processed timestamp watermark; a full refresh remains available for historical rebuilds.
+- Dimensions are current-state natural-key models, not SCD Type 2 history.
+- Airflow DAG syntax and task wiring are repository-validated, but an Airflow scheduler runtime is not bundled with the project.
+- The isolated late-arrival demonstration creates dedicated cloud test resources; this work does not delete cloud datasets or buckets.

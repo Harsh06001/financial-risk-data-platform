@@ -55,7 +55,8 @@ models:
       - name: risk_reason
         tests:
           - accepted_values:
-              values:
-                - known_fraud_and_high_value
-                - known_fraud
-                - high_value
+              arguments:
+                values:
+                  - known_fraud_and_high_value
+                  - known_fraud
+                  - high_value
