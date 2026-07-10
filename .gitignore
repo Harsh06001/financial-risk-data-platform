@@ -6,6 +6,8 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.venv-dbt/
+.venv-dbt2/
 venv/
 .env
 
@@ -13,6 +15,19 @@ venv/
 data/
 *.csv
 *.parquet
+
+# dbt and Airflow
+.dbt/
+dbt/risk_analytics/target/
+dbt/risk_analytics/logs/
+dbt/risk_analytics/dbt_packages/
+dbt/risk_analytics/.user.yml
+airflow/logs/
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/standalone_admin_password.txt
+airflow/*.pid
+airflow/__pycache__/
 
 # Terraform
 **/.terraform/*

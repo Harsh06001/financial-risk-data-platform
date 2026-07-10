@@ -147,6 +147,7 @@ def validate_processed_output(
 
     run_command(command)
 
+
 def build_risk_features(
     processed_input: Path,
     feature_output: Path,
@@ -168,6 +169,7 @@ def build_risk_features(
     ]
 
     run_command(command)
+
 
 def validate_risk_features(
     feature_output: Path,
@@ -236,11 +238,12 @@ def validate_risk_features(
 
     run_command(command)
 
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run the local batch transaction pipeline with raw and "
-            "processed data validation."
+            "Run the local batch transaction pipeline with raw validation, "
+            "processing, risk feature generation, and output validation."
         )
     )
 

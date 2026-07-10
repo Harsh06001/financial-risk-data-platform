@@ -1,0 +1,13 @@
+risk_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'risk-data-platform-npg-2026') }}"
+      dataset: "{{ env_var('DBT_DATASET', 'risk_analytics') }}"
+      location: "{{ env_var('GCP_LOCATION', 'us-central1') }}"
+      threads: 1
+      timeout_seconds: 300
+      priority: interactive
+      retries: 1

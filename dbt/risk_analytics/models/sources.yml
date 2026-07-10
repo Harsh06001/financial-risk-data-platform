@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: risk_analytics
+    database: risk-data-platform-npg-2026
+    schema: risk_analytics
+    tables:
+      - name: daily_transaction_summary
+      - name: customer_risk_features
+      - name: merchant_risk_features
+      - name: segment_risk_summary
+      - name: high_risk_transactions

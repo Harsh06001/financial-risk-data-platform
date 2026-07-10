@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: stg_customer_risk_features
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+      - name: fraud_rate
+        tests:
+          - not_null
+
+  - name: stg_merchant_risk_features
+    columns:
+      - name: merchant_id
+        tests:
+          - not_null
+          - unique
+      - name: fraud_rate
+        tests:
+          - not_null
+
+  - name: stg_daily_transaction_summary
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+          - unique
+      - name: fraud_rate
+        tests:
+          - not_null
+
+  - name: stg_segment_risk_summary
+    columns:
+      - name: country
+        tests:
+          - not_null
+      - name: merchant_category
+        tests:
+          - not_null
+      - name: payment_method
+        tests:
+          - not_null
+      - name: fraud_rate
+        tests:
+          - not_null
+
+  - name: stg_high_risk_transactions
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: risk_reason
+        tests:
+          - accepted_values:
+              values:
+                - known_fraud_and_high_value
+                - known_fraud
+                - high_value
