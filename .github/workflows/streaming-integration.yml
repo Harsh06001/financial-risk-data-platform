@@ -135,3 +135,14 @@ jobs:
       - name: Stop Compose services
         if: always()
         run: docker compose down
+
+      - name: Dump Docker logs on failure
+        if: failure()
+        run: |
+          docker compose ps || true
+          docker compose logs redpanda || true
+          docker compose logs topic-init || true
+          docker compose logs app || true
+          docker compose logs prometheus || true
+          docker compose logs alertmanager || true
+          docker compose logs grafana || true
