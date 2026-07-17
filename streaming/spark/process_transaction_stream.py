@@ -4,7 +4,9 @@ import argparse
 import json
 import os
 import sys
+import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -12,6 +14,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "data" / "streaming"
+
+
+def env_flag(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -22,6 +31,29 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--topic", default=os.environ.get("KAFKA_TOPIC", "transaction-events")
+    )
+    parser.add_argument(
+        "--dlq-topic",
+        default=os.environ.get("KAFKA_DLQ_TOPIC", "transaction-events-dlq"),
+    )
+    parser.add_argument(
+        "--risk-alert-topic",
+        default=os.environ.get("KAFKA_RISK_ALERT_TOPIC", "streaming-risk-alerts"),
+    )
+    parser.add_argument(
+        "--publish-dlq",
+        action=argparse.BooleanOptionalAction,
+        default=env_flag("STREAM_PUBLISH_DLQ", True),
+    )
+    parser.add_argument(
+        "--publish-risk-alerts",
+        action=argparse.BooleanOptionalAction,
+        default=env_flag("STREAM_PUBLISH_RISK_ALERTS", True),
+    )
+    parser.add_argument(
+        "--risk-alert-amount",
+        type=float,
+        default=float(os.environ.get("STREAM_RISK_ALERT_AMOUNT", "1000")),
     )
     parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
     parser.add_argument("--starting-offsets", choices=["earliest", "latest"], default="earliest")
@@ -79,6 +111,8 @@ def main() -> None:
         raise ValueError("max-runtime-seconds must be at least 1")
     if args.late_threshold_hours < 0:
         raise ValueError("late-threshold-hours must be non-negative")
+    if args.risk_alert_amount <= 0:
+        raise ValueError("risk-alert-amount must be positive")
 
     data_root = args.data_root.resolve()
     bronze_root = data_root / "bronze" / "transaction_events"
@@ -181,6 +215,7 @@ def main() -> None:
     )
 
     def process_batch(batch_df, batch_id: int) -> None:
+        started = time.monotonic()
         batch_df = batch_df.cache()
         try:
             input_count = batch_df.count()
@@ -195,6 +230,8 @@ def main() -> None:
             schema_drift_count = batch_df.filter(
                 col("unexpected_field_count") > 0
             ).count()
+            risk_df = clean_df.filter(col("amount") >= args.risk_alert_amount)
+            risk_alert_count = risk_df.count()
 
             enriched_clean = (
                 clean_df.withColumn("processing_batch_id", lit(batch_id))
@@ -211,6 +248,34 @@ def main() -> None:
                 str(quarantine_root / f"batch_id={batch_id}")
             )
 
+            dlq_count = 0
+            if args.publish_dlq and invalid_count:
+                (
+                    invalid_df.select(
+                        col("transaction_id").cast("string").alias("key"),
+                        col("raw_json").cast("string").alias("value"),
+                    )
+                    .write.format("kafka")
+                    .option("kafka.bootstrap.servers", args.bootstrap_servers)
+                    .option("topic", args.dlq_topic)
+                    .save()
+                )
+                dlq_count = invalid_count
+
+            published_risk_alert_count = 0
+            if args.publish_risk_alerts and risk_alert_count:
+                (
+                    risk_df.select(
+                        col("transaction_id").cast("string").alias("key"),
+                        col("raw_json").cast("string").alias("value"),
+                    )
+                    .write.format("kafka")
+                    .option("kafka.bootstrap.servers", args.bootstrap_servers)
+                    .option("topic", args.risk_alert_topic)
+                    .save()
+                )
+                published_risk_alert_count = risk_alert_count
+
             metrics = {
                 "pipeline_name": "transaction_event_stream",
                 "processing_run_id": args.run_id,
@@ -222,6 +287,10 @@ def main() -> None:
                 "duplicate_count": duplicate_count,
                 "late_count": late_count,
                 "schema_drift_count": schema_drift_count,
+                "dlq_count": dlq_count,
+                "risk_alert_count": published_risk_alert_count,
+                "processing_timestamp": datetime.now(timezone.utc).isoformat(),
+                "processing_duration_seconds": round(time.monotonic() - started, 6),
                 "reconciliation": input_count
                 == clean_count + invalid_count + duplicate_count,
             }

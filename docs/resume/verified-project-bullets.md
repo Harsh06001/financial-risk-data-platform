@@ -15,6 +15,14 @@ Only use runtime wording (for example, “verified Docker build” or “loaded 
 
 Production streaming, production monitoring/alerting, enterprise CI/CD, managed Kafka/Spark/Airflow, Kubernetes, real-time fraud detection, measured streaming throughput, or professional production use.
 
+## Version 1.3 Evidence — VERIFIED IN REPOSITORY
+
+- Extended the controlled streaming design with idempotent input/DLQ/risk topics, optional Spark Kafka sinks, batch accounting, and checkpoint restart verification.
+- Added a local Prometheus, Grafana, and Alertmanager deployment definition with Redpanda/application metrics, three provisioned dashboards, nine data-platform alert rules, and console/file/optional-Slack routing.
+- Added an opt-in streaming event-quality mart with reconciliation tests and a manual, credential-free container integration workflow.
+
+Say “implemented a local deployment definition” until a retained successful runtime result supports stronger “ran” or “verified” wording.
+
 ## Evidence rules
 
 - `VERIFIED` means the repository contains an implementation and a successful command result or tracked evidence artifact.

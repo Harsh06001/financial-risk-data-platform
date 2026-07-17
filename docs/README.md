@@ -9,6 +9,11 @@ Version 1.2 extensions:
 - [26 — Deployment guide](26-deployment-guide.md)
 - [27 — Operations runbook](27-v1-2-operations-runbook.md)
 
+Version 1.3 extensions:
+
+- [28 — v1.3 streaming runtime and monitoring](28-v1-3-streaming-runtime-and-monitoring.md)
+- [29 — v1.3 demo and troubleshooting runbook](29-v1-3-demo-runbook.md)
+
 This documentation explains the implemented repository rather than a hypothetical platform. Start with [LEARNING_PATH.md](LEARNING_PATH.md), then use the numbered chapters as references.
 
 1. [Project overview](00-project-overview.md)

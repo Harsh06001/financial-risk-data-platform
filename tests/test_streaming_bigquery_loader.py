@@ -44,3 +44,12 @@ def test_loader_fails_if_target_uniqueness_check_fails(monkeypatch, tmp_path):
     monkeypatch.setattr(loader, "run_command", fake_run)
     with pytest.raises(RuntimeError, match="contains duplicates"):
         loader.load_streaming_events(_silver_files(tmp_path))
+
+
+def test_bigquery_status_file_is_machine_readable(tmp_path):
+    output = tmp_path / "load-status.json"
+    loader.write_status(output, False, "intentional test failure")
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["success"] is False
+    assert payload["details"] == "intentional test failure"
+    assert payload["observation_timestamp"]

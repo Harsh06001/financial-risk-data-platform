@@ -13,3 +13,5 @@ flowchart LR
 Start from `.env.example`; do not put credentials in `.env` or the build context. Run `make setup` for the host virtual environment, `make stream-up` for Redpanda, and the `stream-*` targets for the bounded demo. `make docker-down` stops services and preserves the named broker volume. The application image does not contain Google Cloud CLI tools; optional cloud loading runs on an authenticated host.
 
 Docker/Compose availability and exact verification results belong in the final execution report, not as a permanent production claim.
+
+Version 1.3 expands Compose with two additional topics, Redpanda Console, Prometheus, Grafana, Alertmanager, an application metrics exporter, and a local alert webhook. The exact endpoints and bounded runtime sequence are in the [v1.3 guide](28-v1-3-streaming-runtime-and-monitoring.md).

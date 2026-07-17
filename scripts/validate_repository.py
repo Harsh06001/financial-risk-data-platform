@@ -1,6 +1,7 @@
 """Credential-free repository validation used locally and in normal CI."""
 
 import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -20,6 +21,9 @@ EXCLUDED_PARTS = {
     "logs",
     "data",
     "__pycache__",
+    ".pytest_cache",
+    "credentials",
+    "secrets",
 }
 LINK_PATTERN = re.compile(r"!?(?:\[[^\]]*\])\(([^)]+)\)")
 SECRET_PATTERNS = {
@@ -59,6 +63,16 @@ def validate_yaml() -> list[str]:
     return errors
 
 
+def validate_json() -> list[str]:
+    errors = []
+    for path in repository_files({".json"}):
+        try:
+            json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            errors.append(f"JSON syntax: {path.relative_to(PROJECT_ROOT)}: {exc}")
+    return errors
+
+
 def validate_markdown_links() -> list[str]:
     errors = []
     for path in repository_files({".md"}):
@@ -92,6 +106,7 @@ def main() -> None:
     errors = [
         *validate_python(),
         *validate_yaml(),
+        *validate_json(),
         *validate_markdown_links(),
         *validate_no_embedded_secrets(),
     ]
@@ -100,7 +115,7 @@ def main() -> None:
         for error in errors:
             print(f"- {error}")
         raise SystemExit(1)
-    print("REPOSITORY VALIDATION PASSED: Python, YAML, links, secret patterns")
+    print("REPOSITORY VALIDATION PASSED: Python, YAML, JSON, links, secret patterns")
 
 
 if __name__ == "__main__":

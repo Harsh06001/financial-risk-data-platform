@@ -1,9 +1,11 @@
 from datetime import datetime
+from types import SimpleNamespace
+import sys
 
 import pytest
 
 from streaming.contracts import validate_event
-from streaming.producer.produce_transaction_events import generate_events
+from streaming.producer.produce_transaction_events import generate_events, publish_events
 
 
 def test_event_generation_is_deterministic():
@@ -49,3 +51,32 @@ def test_event_contract_rejects_unexpected_fields_as_schema_drift():
     event = next(generate_events(1, seed=99))
     event["new_uncontracted_field"] = "drift"
     assert validate_event(event) == ["unexpected_fields:new_uncontracted_field"]
+
+
+def test_kafka_publish_path_uses_acknowledged_producer(monkeypatch):
+    instances = []
+
+    class FakeProducer:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.sent = []
+            self.flushed = False
+            self.closed = False
+            instances.append(self)
+
+        def send(self, topic, key, value):
+            self.sent.append((topic, key, value))
+
+        def flush(self, timeout):
+            self.flushed = timeout == 30
+
+        def close(self, timeout):
+            self.closed = timeout == 30
+
+    monkeypatch.setitem(sys.modules, "kafka", SimpleNamespace(KafkaProducer=FakeProducer))
+    events = list(generate_events(2, seed=12))
+    publish_events(events, "redpanda:29092", "transaction-events", 0)
+    producer = instances[0]
+    assert producer.kwargs["acks"] == "all"
+    assert len(producer.sent) == 2
+    assert producer.flushed and producer.closed

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -24,7 +25,7 @@ def run_command(command: list[str], capture_output: bool = False) -> str:
     return completed.stdout
 
 
-def load_streaming_events(silver_root: Path) -> None:
+def load_streaming_events(silver_root: Path) -> dict[str, object]:
     parquet_files = sorted(str(path) for path in silver_root.rglob("*.parquet"))
     if not parquet_files:
         raise RuntimeError(f"No streaming silver Parquet files found under {silver_root}")
@@ -104,6 +105,24 @@ def load_streaming_events(silver_root: Path) -> None:
     if int(metrics["row_count"]) != int(metrics["unique_ids"]):
         raise RuntimeError(f"BigQuery streaming target contains duplicates: {metrics}")
     print(f"STREAMING BIGQUERY LOAD PASSED: {metrics}")
+    return metrics
+
+
+def write_status(output: Path, success: bool, details: object) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(
+            {
+                "observation_timestamp": datetime.now(timezone.utc).isoformat(),
+                "success": success,
+                "details": details,
+            },
+            indent=2,
+            default=str,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> None:
@@ -113,8 +132,18 @@ def main() -> None:
         type=Path,
         default=Path("data/streaming/silver/transaction_events"),
     )
+    parser.add_argument(
+        "--status-output",
+        type=Path,
+        default=Path("data/streaming/load-status/bigquery.json"),
+    )
     args = parser.parse_args()
-    load_streaming_events(args.silver_root)
+    try:
+        metrics = load_streaming_events(args.silver_root)
+    except Exception as exc:
+        write_status(args.status_output, False, f"{type(exc).__name__}: {exc}")
+        raise
+    write_status(args.status_output, True, metrics)
 
 
 if __name__ == "__main__":

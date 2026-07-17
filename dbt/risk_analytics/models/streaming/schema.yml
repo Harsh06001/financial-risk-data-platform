@@ -27,3 +27,14 @@ models:
         tests:
           - not_null
           - unique
+
+  - name: mart_streaming_event_quality
+    description: Daily quality and processing-health summary for valid streaming events.
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+          - unique
+      - name: event_count
+        tests:
+          - not_null

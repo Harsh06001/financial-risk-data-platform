@@ -1,0 +1,137 @@
+name: Streaming Integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-streaming-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI_STREAM_ROOT: /app/data/streaming/ci-runtime
+      CI_METRICS_ROOT: /app/data/streaming/ci-runtime/metrics/transaction_events
+      CI_CHECKPOINT_SNAPSHOT: /app/data/streaming/ci-runtime/checkpoint-snapshot.json
+      STREAMING_METRICS_ROOT: /app/data/streaming/ci-runtime/metrics/transaction_events
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build application services
+        run: docker compose build app metrics-exporter alert-webhook
+
+      - name: Start broker and monitoring stack
+        run: >-
+          docker compose up -d
+          redpanda topic-init kafka-ui metrics-exporter alert-webhook
+          alertmanager prometheus grafana
+
+      - name: Verify initialized topics
+        run: |
+          docker compose exec -T redpanda rpk topic describe transaction-events --brokers redpanda:29092
+          docker compose exec -T redpanda rpk topic describe transaction-events-dlq --brokers redpanda:29092
+          docker compose exec -T redpanda rpk topic describe streaming-risk-alerts --brokers redpanda:29092
+
+      - name: Produce deterministic Kafka smoke events
+        run: >-
+          docker compose run --rm app
+          python -m streaming.producer.produce_transaction_events
+          --bootstrap-servers redpanda:29092
+          --count 30 --rate 20 --seed 202613
+          --invalid-every 10 --duplicate-every 12 --late-every 15
+
+      - name: Run bounded Spark Structured Streaming consumer
+        run: >-
+          docker compose run --rm app
+          spark-submit
+          --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.2
+          streaming/spark/process_transaction_stream.py
+          --bootstrap-servers redpanda:29092
+          --data-root $CI_STREAM_ROOT
+          --available-now
+          --publish-dlq
+          --publish-risk-alerts
+
+      - name: Validate streaming output reconciliation
+        run: >-
+          docker compose run --rm app
+          python streaming/spark/validate_stream_output.py
+          --metrics-root $CI_METRICS_ROOT
+          --max-invalid-rate 0.10
+
+      - name: Snapshot processed offsets
+        run: >-
+          docker compose run --rm app
+          python -m streaming.spark.verify_checkpoint_restart
+          --metrics-root $CI_METRICS_ROOT
+          --snapshot $CI_CHECKPOINT_SNAPSHOT
+          --write-snapshot
+
+      - name: Restart bounded consumer with the same checkpoint
+        run: >-
+          docker compose run --rm app
+          spark-submit
+          --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.2
+          streaming/spark/process_transaction_stream.py
+          --bootstrap-servers redpanda:29092
+          --data-root $CI_STREAM_ROOT
+          --available-now
+          --publish-dlq
+          --publish-risk-alerts
+
+      - name: Verify checkpoint prevented replay
+        run: >-
+          docker compose run --rm app
+          python -m streaming.spark.verify_checkpoint_restart
+          --metrics-root $CI_METRICS_ROOT
+          --snapshot $CI_CHECKPOINT_SNAPSHOT
+
+      - name: Run streaming observability
+        run: >-
+          docker compose run --rm app
+          python observability/collect_metrics.py
+          --component streaming
+          --streaming-metrics-root $CI_METRICS_ROOT
+          --output /app/observability/results/streaming-integration.json
+
+      - name: Run forced local alert
+        run: >-
+          docker compose run --rm app
+          python alerts/alert_manager.py
+          --force-demo-alert
+          --output /app/alerts/results/streaming-integration-forced.json
+
+      - name: Verify monitoring endpoints
+        run: |
+          curl --fail --retry 20 --retry-delay 3 http://localhost:9108/health
+          curl --fail --retry 20 --retry-delay 3 http://localhost:9090/-/ready
+          curl --fail --retry 20 --retry-delay 3 http://localhost:9093/-/ready
+          curl --fail --retry 20 --retry-delay 3 http://localhost:3000/api/health
+          curl --fail --retry 20 --retry-delay 3 http://localhost:8080/health
+
+      - name: Verify Alertmanager local route
+        run: |
+          curl --fail --request POST http://localhost:9093/api/v2/alerts \
+            --header 'Content-Type: application/json' \
+            --data '[{"labels":{"alertname":"ForcedStreamingIntegrationAlert","severity":"WARNING","pipeline":"transaction_event_stream"},"annotations":{"summary":"Intentional streaming integration alert"}}]'
+          for attempt in {1..15}; do
+            if test -s alerts/results/alertmanager.json; then
+              break
+            fi
+            sleep 1
+          done
+          test -s alerts/results/alertmanager.json
+
+      - name: Show service state and logs on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --no-color --tail=200
+
+      - name: Stop Compose services
+        if: always()
+        run: docker compose down

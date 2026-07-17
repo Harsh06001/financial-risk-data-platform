@@ -31,7 +31,7 @@ jobs:
           --profiles-dir dbt/risk_analytics
           --vars '{enable_streaming_models: true}'
       - name: Compile Python
-        run: python -m compileall -q airflow alerts batch-processing benchmarks cloud data-generator observability pipeline scripts streaming warehouse
+        run: python -m compileall -q airflow alerts batch-processing benchmarks cloud data-generator monitoring observability pipeline scripts streaming warehouse
       - uses: hashicorp/setup-terraform@v3
       - name: Terraform format
         run: terraform -chdir=infrastructure/terraform fmt -check -recursive

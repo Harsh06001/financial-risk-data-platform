@@ -1,0 +1,92 @@
+groups:
+  - name: streaming-platform
+    rules:
+      - alert: KafkaBrokerUnavailable
+        expr: up{job="redpanda"} == 0
+        for: 30s
+        labels:
+          severity: CRITICAL
+          pipeline: transaction_event_stream
+        annotations:
+          summary: Redpanda broker metrics endpoint is unavailable
+          description: Prometheus has been unable to scrape Redpanda for 30 seconds.
+
+      - alert: KafkaConsumerLagHigh
+        expr: redpanda_kafka_consumer_group_lag_max > 100
+        for: 2m
+        labels:
+          severity: WARNING
+          pipeline: transaction_event_stream
+        annotations:
+          summary: Kafka consumer lag exceeds 100 events
+          description: Consumer lag has remained above the local demo threshold for two minutes.
+
+      - alert: NoStreamingBatchMetrics
+        expr: streaming_batch_metrics_available == 0
+        for: 2m
+        labels:
+          severity: WARNING
+          pipeline: transaction_event_stream
+        annotations:
+          summary: No streaming micro-batch metrics are available
+          description: Run the producer and bounded Spark consumer to create batch metrics.
+
+      - alert: NoRecentStreamingBatch
+        expr: streaming_batch_metrics_available == 1 and (time() - streaming_last_batch_timestamp_seconds) > 300
+        for: 1m
+        labels:
+          severity: WARNING
+          pipeline: transaction_event_stream
+        annotations:
+          summary: No streaming batch completed during the last five minutes
+          description: Check producer activity, Spark execution, and checkpoint access.
+
+      - alert: StreamingInvalidRecordRateHigh
+        expr: streaming_invalid_record_ratio > 0.10
+        for: 30s
+        labels:
+          severity: CRITICAL
+          pipeline: transaction_event_stream
+        annotations:
+          summary: Streaming invalid-record ratio exceeds 10 percent
+          description: Inspect quarantine and schema-drift metrics before loading data.
+
+      - alert: StreamingDlqEventsDetected
+        expr: streaming_dlq_events_total > 0
+        for: 15s
+        labels:
+          severity: WARNING
+          pipeline: transaction_event_stream
+        annotations:
+          summary: Invalid events were published to the streaming DLQ
+          description: Inspect transaction-events-dlq and the local quarantine output.
+
+      - alert: StreamingBigQueryLoadFailed
+        expr: streaming_bigquery_load_status_available == 1 and streaming_bigquery_load_success == 0
+        for: 15s
+        labels:
+          severity: CRITICAL
+          pipeline: streaming_bigquery_load
+        annotations:
+          summary: Latest optional streaming BigQuery load failed
+          description: Inspect the loader status file and staging table before retrying.
+
+      - alert: StreamingDbtTestsFailed
+        expr: streaming_dbt_test_results_available == 1 and streaming_dbt_test_failures > 0
+        for: 15s
+        labels:
+          severity: CRITICAL
+          pipeline: streaming_dbt
+        annotations:
+          summary: One or more streaming dbt nodes failed
+          description: Inspect dbt run_results.json and do not promote the streaming mart.
+
+      - alert: StreamingDataFreshnessMissed
+        expr: streaming_batch_metrics_available == 1 and (time() - streaming_last_batch_timestamp_seconds) > 900
+        for: 1m
+        labels:
+          severity: CRITICAL
+          pipeline: transaction_event_stream
+        annotations:
+          summary: Streaming data freshness exceeds 15 minutes
+          description: The latest recorded Spark batch is outside the local freshness contract.

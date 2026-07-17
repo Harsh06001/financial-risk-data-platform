@@ -11,6 +11,7 @@ on:
       - requirements-dbt.txt
       - requirements-dev.txt
       - streaming/**
+      - monitoring/**
       - docker/**
       - .github/workflows/docker-build.yml
   pull_request:
@@ -23,6 +24,7 @@ on:
       - requirements-dbt.txt
       - requirements-dev.txt
       - streaming/**
+      - monitoring/**
       - docker/**
       - .github/workflows/docker-build.yml
 

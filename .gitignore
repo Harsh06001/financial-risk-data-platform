@@ -49,6 +49,7 @@ crash.*.log
 
 # Credentials and secrets
 *.json
+!monitoring/grafana/dashboards/*.json
 *.pem
 *.key
 credentials/

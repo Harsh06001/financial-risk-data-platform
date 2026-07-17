@@ -28,3 +28,5 @@ Use a new producer seed for a distinct deterministic input set. A preserved Spar
 Generated outputs are audit-like by batch directory and BigQuery loads are staged plus `MERGE`. Code rollback is a normal Git change; cloud resource changes require reviewed Terraform plans. Never use broad bucket/dataset deletion for recovery.
 
 Production improvements include multi-broker managed Kafka, schema registry, cross-batch stateful deduplication policy, transactional object/table publication, managed Spark, durable metrics tables, paging/routing, secret manager integration, workload identity federation, deployment environments, and measured SLAs.
+
+For the v1.3 three-topic and Prometheus/Grafana/Alertmanager deployment, continue with the [v1.3 runbook](29-v1-3-demo-runbook.md).

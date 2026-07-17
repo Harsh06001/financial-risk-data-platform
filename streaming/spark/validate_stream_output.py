@@ -36,6 +36,12 @@ def validate_metrics(
     totals["schema_drift_count"] = sum(
         int(batch.get("schema_drift_count", 0)) for batch in metrics
     )
+    totals["dlq_count"] = sum(int(batch.get("dlq_count", 0)) for batch in metrics)
+    totals["risk_alert_count"] = sum(
+        int(batch.get("risk_alert_count", 0)) for batch in metrics
+    )
+    if totals["dlq_count"] > totals["invalid_count"]:
+        raise RuntimeError("DLQ count exceeds invalid event count")
     if not all(bool(batch.get("reconciliation")) for batch in metrics):
         raise RuntimeError("At least one streaming batch failed reconciliation")
     if totals["input_count"] != (

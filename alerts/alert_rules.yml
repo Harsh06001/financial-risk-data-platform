@@ -7,3 +7,16 @@ channels:
 statuses_that_alert:
   - WARN
   - FAIL
+prometheus:
+  rule_file: monitoring/prometheus/alerts.yml
+  alertmanager_receiver: local-webhook
+  rules:
+    - KafkaBrokerUnavailable
+    - KafkaConsumerLagHigh
+    - NoStreamingBatchMetrics
+    - NoRecentStreamingBatch
+    - StreamingInvalidRecordRateHigh
+    - StreamingDlqEventsDetected
+    - StreamingBigQueryLoadFailed
+    - StreamingDbtTestsFailed
+    - StreamingDataFreshnessMissed

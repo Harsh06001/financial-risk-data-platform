@@ -10,6 +10,8 @@
 | Alerting | Console, ignored JSON, optional environment-supplied Slack webhook | Not paging or incident management |
 | CI/CD | Credential-free checks, Docker build, manual GCP workflow | Repository workflows, not enterprise deployment |
 
+Version 1.3 adds truthful repository evidence for Prometheus, Grafana dashboard provisioning, Alertmanager routing, Kafka DLQ design, checkpoint restart testing, and streaming data-quality reconciliation. These remain portfolio/local keywords unless runtime or deployment evidence explicitly supports more.
+
 This map links truthful resume keywords to concrete implementation evidence. It is not a recommendation to paste every keyword into one resume.
 
 | Keyword | Implemented evidence | Best resume context |

@@ -10,6 +10,8 @@ flowchart LR
     S --> Q[(Quarantine Parquet)]
     S --> C[(Clean silver Parquet)]
     S --> M[Batch metrics JSON]
+    S -->|optional invalid copy| DLQ[transaction-events-dlq]
+    S -->|optional high value| RA[streaming-risk-alerts]
     C -. host bq load + MERGE .-> W[(BigQuery streaming table)]
     W -. enable_streaming_models .-> D[dbt staging + mart]
 ```
@@ -18,6 +20,6 @@ The producer accepts event count, rate, seed, invalid, duplicate, and late-event
 
 Invalid rows go to quarantine. Valid duplicate IDs are removed inside each Spark micro-batch. The optional host-side BigQuery loader deduplicates the entire staged input and uses `MERGE` on `transaction_id`, so same inputs update/insert rather than append duplicates. Local silver files are audit artifacts and do not claim global uniqueness across independently reset checkpoints.
 
-Generated paths are `data/streaming/{bronze,silver,quarantine,metrics,checkpoints}/transaction_events`. The BigQuery table and both dbt streaming models are optional: `dbt ... --vars '{enable_streaming_models: true}'`. Defaults preserve the verified v1.1 graph at 15 models/37 tests; opt-in streaming expands it to 17 models/45 tests.
+Generated paths are `data/streaming/{bronze,silver,quarantine,metrics,checkpoints}/transaction_events`. The BigQuery table and three dbt streaming models are optional: `dbt ... --vars '{enable_streaming_models: true}'`. Defaults preserve the verified v1.1 graph at 15 models/37 tests; opt-in streaming expands it to 18 models/50 tests.
 
 Limitations: one broker, one topic partition, local Spark, no throughput/SLA claim, and no executed live BigQuery streaming claim unless separately evidenced.

@@ -29,13 +29,14 @@ services:
     depends_on:
       redpanda:
         condition: service_healthy
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - >-
-        rpk topic create ${KAFKA_TOPIC:-transaction-events}
-        --brokers redpanda:29092 --partitions 1 --replicas 1 ||
-        rpk topic describe ${KAFKA_TOPIC:-transaction-events}
-        --brokers redpanda:29092
+    entrypoint: ["/bin/sh", "/init-topics.sh"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-transaction-events}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:-transaction-events-dlq}
+      KAFKA_RISK_ALERT_TOPIC: ${KAFKA_RISK_ALERT_TOPIC:-streaming-risk-alerts}
+    volumes:
+      - ./docker/scripts/init-topics.sh:/init-topics.sh:ro
 
   app:
     build:
@@ -49,6 +50,8 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
       KAFKA_TOPIC: ${KAFKA_TOPIC:-transaction-events}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC:-transaction-events-dlq}
+      KAFKA_RISK_ALERT_TOPIC: ${KAFKA_RISK_ALERT_TOPIC:-streaming-risk-alerts}
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-risk-data-platform-npg-2026}
       GCP_LOCATION: ${GCP_LOCATION:-us-central1}
       DBT_DATASET: ${DBT_DATASET:-risk_analytics}
@@ -60,5 +63,112 @@ services:
       - ./alerts/results:/app/alerts/results
     command: ["sleep", "infinity"]
 
+  kafka-ui:
+    image: docker.redpanda.com/redpandadata/console:v3.8.0
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      topic-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+    ports:
+      - "8080:8080"
+
+  metrics-exporter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      METRICS_EXPORTER_HOST: 0.0.0.0
+      METRICS_EXPORTER_PORT: 9108
+      STREAMING_METRICS_ROOT: ${STREAMING_METRICS_ROOT:-/app/data/streaming/metrics/transaction_events}
+      STREAMING_BIGQUERY_STATUS: /app/data/streaming/load-status/bigquery.json
+      DBT_RUN_RESULTS: /app/dbt-target/run_results.json
+    volumes:
+      - ./data:/app/data:ro
+      - ./dbt/risk_analytics/target:/app/dbt-target:ro
+    command: ["python", "-m", "monitoring.metrics_exporter"]
+    ports:
+      - "9108:9108"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9108/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  alert-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ALERT_WEBHOOK_HOST: 0.0.0.0
+      ALERT_WEBHOOK_PORT: 8088
+      ALERT_WEBHOOK_OUTPUT: /app/alerts/results/alertmanager.json
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - ./alerts/results:/app/alerts/results
+    command: ["python", "-m", "monitoring.alert_webhook"]
+    ports:
+      - "18088:8088"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8088/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      metrics-exporter:
+        condition: service_healthy
+      alertmanager:
+        condition: service_started
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  alertmanager:
+    image: prom/alertmanager:v0.32.1
+    depends_on:
+      alert-webhook:
+        condition: service_healthy
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "9093:9093"
+
+  grafana:
+    image: grafana/grafana:13.1.0
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+
 volumes:
   redpanda-data:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

@@ -1,6 +1,6 @@
-# Financial Risk Data Platform — Version 1.2
+# Financial Risk Data Platform — Version 1.3
 
-A GCP data engineering portfolio project with a verified batch warehouse and incremental pipeline, extended in v1.2 by a controlled Kafka-compatible streaming simulation, Docker local environment, lightweight observability/alerting, and CI workflows. It is not presented as production infrastructure or professional production experience.
+A GCP data engineering portfolio project with a verified batch warehouse and incremental pipeline, extended in v1.3 by a complete local Kafka-compatible streaming and monitoring deployment definition. It is not presented as production infrastructure or professional production experience.
 
 ## Architecture
 
@@ -28,6 +28,13 @@ flowchart LR
     I --> T[Observability]
     R --> T
     T --> U[Console / JSON / optional Slack]
+    P --> V[Redpanda Console]
+    P --> W[Prometheus]
+    R --> X[Application metrics exporter]
+    X --> W
+    W --> Y[Grafana dashboards]
+    W --> Z[Alertmanager]
+    Z --> U
 ```
 
 The dimensional core contains `fct_transactions` at one row per `transaction_id`, `dim_customer` at one row per `customer_id`, `dim_merchant` at one row per `merchant_id`, and `dim_date` at one row per observed `event_date`. Stable source natural keys are used; v1.1 intentionally models current state rather than SCD Type 2 history.
@@ -50,20 +57,23 @@ One-date incremental pipeline—dynamic partition overwrite, exact partition syn
 
 The same event date can be rerun safely. The warehouse `MERGE` matches on `transaction_id`, updates matched rows, and inserts new rows.
 
-Version 1.2 local streaming demo:
+Version 1.3 local streaming and monitoring demo:
 
 ```bash
 make setup
-make stream-up
+make docker-up
 make stream-produce
 make stream-process
 make stream-validate
+make stream-restart-snapshot
+make stream-process
+make stream-restart-verify
 make observe
 make alert-demo
 make docker-down
 ```
 
-The `transaction-events` topic has one partition for deterministic local behavior. The streaming producer/consumer is deliberately separate from canonical batch data. BigQuery loading is an explicit host-side operation, and streaming dbt models are disabled by default so the existing 15-model/37-test graph remains unchanged. With a populated streaming source, `--vars '{enable_streaming_models: true}'` enables 17 models/45 tests.
+The three local topics are `transaction-events`, `transaction-events-dlq`, and `streaming-risk-alerts`, each with one partition for deterministic local behavior. The streaming producer/consumer is deliberately separate from canonical batch data. BigQuery loading is an explicit host-side operation, and streaming dbt models are disabled by default so the existing 15-model/37-test graph remains unchanged. With a populated streaming source, `--vars '{enable_streaming_models: true}'` enables 18 models/50 tests.
 
 Useful verification commands:
 
@@ -99,6 +109,8 @@ Start with the [documentation index](docs/README.md) or the guided [learning pat
 
 Version 1.2 operations begin with [Docker/local development](docs/22-docker-and-local-development.md), [streaming](docs/23-streaming-pipeline.md), [observability and alerting](docs/24-data-observability-and-alerting.md), [CI/CD](docs/25-ci-cd.md), [deployment modes](docs/26-deployment-guide.md), and the [runbook](docs/27-v1-2-operations-runbook.md).
 
+Version 1.3 adds the [streaming runtime and monitoring guide](docs/28-v1-3-streaming-runtime-and-monitoring.md) and [demo troubleshooting runbook](docs/29-v1-3-demo-runbook.md).
+
 ## Known limitations
 
 - This is a local-development portfolio system, not a production SLA or distributed-cluster benchmark.
@@ -110,4 +122,5 @@ Version 1.2 operations begin with [Docker/local development](docs/22-docker-and-
 - Streaming is a bounded single-broker/local-Spark simulation; no throughput, SLA, or production real-time claim is made.
 - The optional streaming BigQuery loader and streaming dbt models require an explicitly populated cloud source and are not part of default v1.1 execution.
 - Console/JSON observations and optional Slack are lightweight portfolio alerting, not a production paging system.
+- Prometheus, Grafana, Alertmanager, and Redpanda Console are single-host demo services without HA, retention, authentication hardening, or production SLAs.
 - The isolated late-arrival demonstration creates dedicated cloud test resources; this work does not delete cloud datasets or buckets.

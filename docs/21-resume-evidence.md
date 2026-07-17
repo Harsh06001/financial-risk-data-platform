@@ -6,6 +6,10 @@ Repository-verifiable implementation includes a Docker/Redpanda local configurat
 
 Do not claim production streaming, production monitoring/alerting, enterprise CI/CD, Kubernetes, managed Airflow, real-time fraud detection, or measured streaming throughput.
 
+## Version 1.3 evidence
+
+Repository-verifiable implementation adds three-topic Redpanda initialization, optional Spark DLQ/risk publication, checkpoint restart verification, a Prometheus JSON-metrics exporter, Alertmanager local webhook, three provisioned Grafana dashboards, nine Prometheus alert rules, a third opt-in streaming dbt mart, and a manual container integration workflow. Runtime wording remains conditional on retained successful Docker or GitHub workflow evidence.
+
 Use a claim only when the cited artifact or command result supports it.
 
 | Claim | Evidence |
