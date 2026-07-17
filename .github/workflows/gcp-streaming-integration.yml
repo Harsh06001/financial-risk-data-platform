@@ -1,0 +1,123 @@
+name: Manual GCP Streaming Integration (Cost Controlled)
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_count:
+        description: "Synthetic events (maximum 10000; 1000 recommended)"
+        required: true
+        default: "1000"
+        type: string
+      run_dataflow_demo:
+        description: "Run the billable short Dataflow demo"
+        required: true
+        default: false
+        type: boolean
+      cleanup_after_run:
+        description: "Delete only guarded Dataflow temp/staging objects after stopping"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  credential-free-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install safe validation dependencies
+        run: python -m pip install -r requirements-dev.txt -r requirements-dbt.txt
+      - name: Compile GCP streaming helpers
+        run: python -m compileall -q gcp_streaming
+      - name: Run credential-free GCP streaming tests
+        run: python -m pytest gcp_streaming/tests -q
+      - name: Dry-run deterministic producer
+        run: >-
+          python -m gcp_streaming.producer.publish_transaction_events
+          --dry-run --count 25 --seed 202614
+          --output /tmp/gcp-streaming-events.jsonl
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform format
+        run: terraform -chdir=infrastructure/terraform fmt -check -recursive
+      - name: Terraform initialize without backend
+        run: terraform -chdir=infrastructure/terraform init -backend=false -input=false
+      - name: Terraform validate
+        run: terraform -chdir=infrastructure/terraform validate
+      - name: Parse opt-in GCP streaming dbt graph
+        run: >-
+          dbt parse --no-partial-parse
+          --project-dir dbt/risk_analytics
+          --profiles-dir dbt/risk_analytics
+          --vars '{enable_gcp_streaming_models: true}'
+      - name: Shell syntax
+        run: sh -n gcp_streaming/scripts/*.sh
+
+  live-short-demo:
+    if: ${{ inputs.run_dataflow_demo }}
+    needs: credential-free-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_STREAMING_PROJECT_ID }}
+      GCP_STREAMING_REGION: us-central1
+      GCP_STREAMING_DEMO_EVENT_COUNT: ${{ inputs.event_count }}
+      GCP_STREAMING_MAX_DEMO_MINUTES: "10"
+      GCP_STREAMING_NUM_WORKERS: "1"
+      GCP_STREAMING_MAX_WORKERS: "1"
+      GCP_STREAMING_MACHINE_TYPE: n1-standard-1
+      ACKNOWLEDGE_GCP_COST_RISK: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Authenticate only for explicitly selected live mode
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_STREAMING_CREDENTIALS_JSON }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: hashicorp/setup-terraform@v3
+      - name: Install live demo dependencies
+        run: python -m pip install -r requirements-gcp-streaming.txt -r requirements-dbt.txt
+      - name: Cost and identity preflight
+        run: PYTHON_BIN=python gcp_streaming/scripts/preflight_cost_check.sh --acknowledge-cost-risk
+      - name: Terraform plan only (never apply)
+        run: |
+          terraform -chdir=infrastructure/terraform init -backend=false -input=false
+          terraform -chdir=infrastructure/terraform plan \
+            -var="project_id=${GCP_PROJECT_ID}" \
+            -var=enable_gcp_streaming=true \
+            -var="demo_event_count=${GCP_STREAMING_DEMO_EVENT_COUNT}" \
+            -var="max_demo_minutes=${GCP_STREAMING_MAX_DEMO_MINUTES}" \
+            -var="dataflow_num_workers=${GCP_STREAMING_NUM_WORKERS}" \
+            -var="dataflow_max_workers=${GCP_STREAMING_MAX_WORKERS}"
+      - name: Run guarded short Dataflow demo against pre-provisioned resources
+        run: PYTHON_BIN=python gcp_streaming/scripts/run_short_demo.sh --acknowledge-cost-risk
+      - name: Validate streaming table received rows
+        run: >-
+          bq query --use_legacy_sql=false
+          "ASSERT (SELECT COUNT(*) FROM
+          \`${GCP_PROJECT_ID}.risk_analytics.streaming_transaction_events\`
+          WHERE processing_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 MINUTE)) > 0
+          AS 'No recent streaming rows were written'"
+      - name: Run opt-in GCP streaming dbt models and tests
+        run: |
+          dbt run --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics --vars '{enable_gcp_streaming_models: true}' --select path:models/streaming
+          dbt test --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics --vars '{enable_gcp_streaming_models: true}' --select path:models/streaming 'path:tests/test_streaming*' 'path:tests/test_realtime*'
+      - name: Always stop matching demo jobs
+        if: always()
+        run: gcp_streaming/scripts/stop_dataflow_jobs.sh --cancel
+      - name: Optional guarded temp cleanup
+        if: ${{ always() && inputs.cleanup_after_run }}
+        run: gcp_streaming/scripts/cleanup_streaming_demo.sh --execute --delete-temp
+      - name: Always list potentially billable resources
+        if: always()
+        run: gcp_streaming/scripts/check_active_cost_resources.sh

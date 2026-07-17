@@ -1,6 +1,6 @@
-# Financial Risk Data Platform — Version 1.3
+# Financial Risk Data Platform — Version 1.4
 
-A GCP data engineering portfolio project with a verified batch warehouse and incremental pipeline, extended in v1.3 by a complete local Kafka-compatible streaming and monitoring deployment definition. It is not presented as production infrastructure or professional production experience.
+A GCP data engineering portfolio project with a verified batch warehouse and incremental pipeline, a local Kafka-compatible streaming mode, and an opt-in cost-controlled GCP Pub/Sub/Dataflow streaming deployment definition. It is not presented as production infrastructure or professional production experience.
 
 ## Architecture
 
@@ -35,6 +35,13 @@ flowchart LR
     W --> Y[Grafana dashboards]
     W --> Z[Alertmanager]
     Z --> U
+    AA[Deterministic GCP producer] -. opt in .-> AB[Pub/Sub]
+    AB --> AC[Apache Beam on Dataflow]
+    AC -->|valid| AD[BigQuery streaming events]
+    AC -->|invalid/write error| AE[BigQuery quarantine]
+    AC --> AF[BigQuery observations]
+    AD --> S
+    AC --> AG[Optional Cloud Monitoring]
 ```
 
 The dimensional core contains `fct_transactions` at one row per `transaction_id`, `dim_customer` at one row per `customer_id`, `dim_merchant` at one row per `merchant_id`, and `dim_date` at one row per observed `event_date`. Stable source natural keys are used; v1.1 intentionally models current state rather than SCD Type 2 history.
@@ -73,7 +80,28 @@ make alert-demo
 make docker-down
 ```
 
-The three local topics are `transaction-events`, `transaction-events-dlq`, and `streaming-risk-alerts`, each with one partition for deterministic local behavior. The streaming producer/consumer is deliberately separate from canonical batch data. BigQuery loading is an explicit host-side operation, and streaming dbt models are disabled by default so the existing 15-model/37-test graph remains unchanged. With a populated streaming source, `--vars '{enable_streaming_models: true}'` enables 18 models/50 tests.
+The three local topics are `transaction-events`, `transaction-events-dlq`, and `streaming-risk-alerts`, each with one partition for deterministic local behavior. The streaming producer/consumer is deliberately separate from canonical batch data. BigQuery loading is an explicit host-side operation, and streaming dbt models are disabled by default so the existing 15-model/37-test graph remains unchanged. With a compatible populated source, local streaming enables 19 models/57 tests and GCP streaming enables 19 models/58 tests.
+
+Version 1.4 GCP mode is disabled by default. Safe local checks create no GCP resources:
+
+```bash
+make gcp-streaming-producer-dry-run
+make gcp-streaming-dbt-parse
+terraform -chdir=infrastructure/terraform plan
+```
+
+An approved live demo requires explicit cost acknowledgement, performs a project/billing/worker preflight, uses 1,000 events and one worker by default, and must be stopped within 15 minutes:
+
+```bash
+export ACKNOWLEDGE_GCP_COST_RISK=true
+make gcp-streaming-preflight
+make gcp-streaming-plan   # plan only; never applies
+make gcp-streaming-demo   # billable; only after approved provisioning
+make gcp-streaming-stop
+make gcp-streaming-check-active
+```
+
+The approximately $30–$50-or-less usage target is a design goal, not a guarantee or hard cap. Actual cost depends on runtime, region, pricing, and existing project activity. Read [GCP cost controls and cleanup](docs/29-gcp-cost-controls-and-cleanup.md) before using live GCP.
 
 Useful verification commands:
 
@@ -111,6 +139,8 @@ Version 1.2 operations begin with [Docker/local development](docs/22-docker-and-
 
 Version 1.3 adds the [streaming runtime and monitoring guide](docs/28-v1-3-streaming-runtime-and-monitoring.md) and [demo troubleshooting runbook](docs/29-v1-3-demo-runbook.md).
 
+Version 1.4 adds [GCP streaming deployment](docs/28-gcp-streaming-deployment.md), [cost controls and cleanup](docs/29-gcp-cost-controls-and-cleanup.md), and the [GCP streaming runbook](docs/30-gcp-streaming-runbook.md).
+
 ## Known limitations
 
 - This is a local-development portfolio system, not a production SLA or distributed-cluster benchmark.
@@ -124,3 +154,6 @@ Version 1.3 adds the [streaming runtime and monitoring guide](docs/28-v1-3-strea
 - Console/JSON observations and optional Slack are lightweight portfolio alerting, not a production paging system.
 - Prometheus, Grafana, Alertmanager, and Redpanda Console are single-host demo services without HA, retention, authentication hardening, or production SLAs.
 - The isolated late-arrival demonstration creates dedicated cloud test resources; this work does not delete cloud datasets or buckets.
+- GCP Pub/Sub/Dataflow resources are opt-in definitions and were not created or live-verified as part of the credential-free v1.4 implementation.
+- Pub/Sub/Dataflow streaming is unbounded; the short-demo launcher and runtime alert reduce risk but do not replace manual active-job and Billing checks.
+- Cloud Billing budgets alert on reported spend; they do not impose a hard spending cap.

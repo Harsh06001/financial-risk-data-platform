@@ -1,4 +1,4 @@
-{{ config(enabled=var('enable_streaming_models', false)) }}
+{{ config(enabled=(var('enable_streaming_models', false) or var('enable_gcp_streaming_models', false))) }}
 
 select summary.event_date, summary.event_count
 from {{ ref('mart_streaming_risk_summary') }} summary

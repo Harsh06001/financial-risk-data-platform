@@ -1,4 +1,4 @@
-{{ config(enabled=var('enable_streaming_models', false), materialized='table') }}
+{{ config(enabled=(var('enable_streaming_models', false) or var('enable_gcp_streaming_models', false)), materialized='table') }}
 
 select
     event_date,

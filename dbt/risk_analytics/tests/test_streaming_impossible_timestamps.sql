@@ -2,5 +2,5 @@
 
 select transaction_id
 from {{ ref('stg_streaming_transaction_events') }}
-where amount <= 0
-   or amount > 1000000
+where event_timestamp > ingestion_timestamp
+   or ingestion_timestamp > processing_timestamp

@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: risk_analytics
-    database: risk-data-platform-npg-2026
+    database: "{{ env_var('GCP_PROJECT_ID', 'risk-data-platform-npg-2026') }}"
     schema: risk_analytics
     tables:
       - name: daily_transaction_summary
@@ -12,3 +12,5 @@ sources:
       - name: high_risk_transactions
       - name: processed_transactions
       - name: streaming_transaction_events
+      - name: streaming_transaction_events_quarantine
+      - name: streaming_pipeline_observations

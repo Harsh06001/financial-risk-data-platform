@@ -24,3 +24,18 @@ Questions to practice:
 - Why is the fact incremental but the dimensions are tables?
 - What did the failed timezone scale attempt reveal?
 - Which claims are local synthetic versus canonical benchmark evidence?
+
+## Version 1.4 discussion
+
+Describe v1.4 as an implemented, cost-controlled deployment mode—not as production experience or a live-verified deployment. Explain why the local Redpanda/Spark mode remains useful for credential-free runtime testing while Pub/Sub/Dataflow demonstrates a managed GCP architecture.
+
+Be ready to explain:
+
+- why all Terraform creation flags default to false;
+- why a Pub/Sub streaming job cannot honestly be called bounded;
+- how explicit validation, quarantine, BigQuery insert-error routing, observations, and Beam counters work;
+- why the demo fixes one initial/maximum worker and stops after 10–15 minutes;
+- how the producer refuses large/live sends without explicit overrides and acknowledgement;
+- why Cloud Billing budgets are notifications rather than hard caps;
+- how stop scripts restrict matching to `financial-risk-v14-demo-*`; and
+- the evidence boundary: local compilation/tests/parse/validation versus an unexecuted live GCP deployment.

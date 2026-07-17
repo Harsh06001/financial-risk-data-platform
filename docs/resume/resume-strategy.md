@@ -6,6 +6,8 @@ Describe v1.2 as a personal portfolio extension. Lead with the design boundary�
 
 For v1.3, distinguish provisioned configuration from observed runtime. Prometheus/Grafana/Alertmanager files, dashboards, and integration automation are repository facts; operating a production monitoring platform is not.
 
+For v1.4, “implemented and locally validated a cost-controlled Pub/Sub/Beam/Dataflow deployment mode” is claim-safe after the local checks pass. “Deployed,” “operated,” live row counts, runtime, throughput, and cost are not claim-safe until an approved live run is retained with cleanup and no-active-job evidence.
+
 Maintain one factual experience inventory and tailor emphasis to each job description. ATS fit is job-specific; there is no defensible universal “85 ATS” version.
 
 ## 1. AWS / Spark Data Engineer

@@ -38,3 +38,22 @@ models:
       - name: event_count
         tests:
           - not_null
+
+  - name: mart_realtime_risk_trends
+    description: Hourly opt-in trend mart for the local or GCP streaming source.
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+      - name: event_hour
+        tests:
+          - not_null
+      - name: event_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['authorization', 'purchase', 'refund']
+      - name: event_count
+        tests:
+          - not_null

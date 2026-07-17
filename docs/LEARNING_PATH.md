@@ -4,6 +4,8 @@ After completing the v1.1 batch, warehouse, incremental, dbt, and Airflow sectio
 
 Then complete the [v1.3 streaming runtime and monitoring guide](28-v1-3-streaming-runtime-and-monitoring.md) and reproduce the [checkpoint and troubleshooting runbook](29-v1-3-demo-runbook.md).
 
+For v1.4, study the opt-in [GCP streaming deployment](28-gcp-streaming-deployment.md), read every [cost and cleanup guard](29-gcp-cost-controls-and-cleanup.md), then rehearse the [GCP runbook](30-gcp-streaming-runbook.md) without creating resources. Do not run the live exercise until the Terraform plan, budget, and explicit approval are in place.
+
 Each module should end with an explanation in your own words and one small code or query exercise.
 
 | Module | Read | Run | Be able to answer / exercise |
@@ -23,5 +25,6 @@ Each module should end with an explanation in your own words and one small code 
 | 13 Scale testing | 16 | inspect evidence CSV | calculate throughput; state what it does not prove |
 | 14 Failures/trade-offs | 17–18 | simulate an invalid date | propose 1 TB and 100 TB changes |
 | 15 Resume/interview | 20–21 and resume docs | rehearse walkthrough | defend every number and limitation |
+| 16 Cost-controlled GCP streaming | 28–30 (v1.4) | producer dry run, tests, Terraform plan | explain unbounded-job risk, quarantine, IAM, stop and cleanup |
 
 Suggested pace is one module per week, but modules 3–5 and 9–11 are worth extra practice because they connect implementation details to common Data Engineer interviews.

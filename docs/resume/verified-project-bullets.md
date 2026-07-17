@@ -23,6 +23,14 @@ Production streaming, production monitoring/alerting, enterprise CI/CD, managed 
 
 Say “implemented a local deployment definition” until a retained successful runtime result supports stronger “ran” or “verified” wording.
 
+## Version 1.4 Evidence — IMPLEMENTED AND LOCALLY VALIDATED
+
+- Implemented an opt-in Pub/Sub-to-Apache-Beam/Dataflow-to-BigQuery streaming mode with explicit valid/quarantine/observation schemas, Beam user counters, four opt-in dbt models, and optional Cloud Monitoring policies.
+- Added layered cost controls: disabled-by-default Terraform, a deterministic 1,000-event producer, one-worker/15-minute guards, explicit cost acknowledgement, project/billing preflight, narrowly matched stop logic, cleanup flags, and manual-only CI.
+- Modeled project-scoped $25/$50/$75/$100 budget thresholds without hardcoded billing identifiers and documented that budgets notify rather than cap spend.
+
+These bullets describe repository implementation and local validation only. Replace “implemented” with “deployed” or “operated” only after retaining successful live GCP provisioning, demo, validation, teardown, active-job, and Billing evidence.
+
 ## Evidence rules
 
 - `VERIFIED` means the repository contains an implementation and a successful command result or tracked evidence artifact.
@@ -81,6 +89,6 @@ DO NOT CLAIM:
 - production traffic, production SLAs, production cost savings, revenue impact, or customer impact;
 - distributed-cluster performance from the local `local[*]` scale tests;
 - that 10M rows is the platform’s maximum capacity;
-- AWS, Kafka, streaming, Kubernetes, Dataflow, Databricks, Snowflake, Redshift, or machine learning in this project;
+- AWS, Kubernetes, Databricks, Snowflake, Redshift, or machine learning in this project; do not claim production/live Kafka or Dataflow operation without retained runtime evidence;
 - SCD Type 2, CDC, exactly-once delivery, atomic multi-system commits, or checksum-based GCS content validation;
 - a dbt model/test count unless it matches a fresh successful `dbt run` and `dbt test`.

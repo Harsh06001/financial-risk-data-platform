@@ -17,4 +17,6 @@ Known v1.1 limitations:
 - Airflow runtime validation is not available locally;
 - synthetic local results do not predict cluster or production performance.
 
-Kafka, streaming, Kubernetes, Dataflow, and machine learning are intentionally absent because they do not solve a demonstrated v1.1 requirement.
+Version 1.3 added local Kafka-compatible streaming; version 1.4 adds an optional Pub/Sub/Dataflow deployment definition. Neither changes the canonical batch evidence or establishes production readiness. A production GCP streaming design would additionally require measured capacity and cost baselines, schema-registry/change policy, delivery-semantics analysis, replay/backfill strategy, SLOs, multi-environment promotion, stronger IAM boundaries, remote Terraform state, retention governance, tested disaster recovery, and continuous ownership.
+
+The v1.4 demo deliberately disables autoscaling and limits workers. That is appropriate for cost containment, not throughput. Pub/Sub is unbounded, so manual cancellation and active-job verification remain required. Budgets notify but do not cap spend, and Dataflow/Monitoring pricing can change. Kubernetes and machine learning remain outside scope.

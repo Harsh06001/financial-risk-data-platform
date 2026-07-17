@@ -21,7 +21,7 @@ jobs:
       - name: Repository validation
         run: python scripts/validate_repository.py
       - name: Unit tests
-        run: python -m pytest tests -q
+        run: python -m pytest tests gcp_streaming/tests -q
       - name: Parse default dbt graph
         run: dbt parse --no-partial-parse --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
       - name: Parse opt-in streaming dbt graph
@@ -30,8 +30,14 @@ jobs:
           --project-dir dbt/risk_analytics
           --profiles-dir dbt/risk_analytics
           --vars '{enable_streaming_models: true}'
+      - name: Parse opt-in GCP streaming dbt graph
+        run: >-
+          dbt parse --no-partial-parse
+          --project-dir dbt/risk_analytics
+          --profiles-dir dbt/risk_analytics
+          --vars '{enable_gcp_streaming_models: true}'
       - name: Compile Python
-        run: python -m compileall -q airflow alerts batch-processing benchmarks cloud data-generator monitoring observability pipeline scripts streaming warehouse
+        run: python -m compileall -q airflow alerts batch-processing benchmarks cloud data-generator gcp_streaming monitoring observability pipeline scripts streaming warehouse
       - uses: hashicorp/setup-terraform@v3
       - name: Terraform format
         run: terraform -chdir=infrastructure/terraform fmt -check -recursive

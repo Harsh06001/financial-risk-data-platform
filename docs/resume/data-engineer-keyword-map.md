@@ -12,6 +12,8 @@
 
 Version 1.3 adds truthful repository evidence for Prometheus, Grafana dashboard provisioning, Alertmanager routing, Kafka DLQ design, checkpoint restart testing, and streaming data-quality reconciliation. These remain portfolio/local keywords unless runtime or deployment evidence explicitly supports more.
 
+Version 1.4 adds repository evidence for Pub/Sub, Apache Beam, Dataflow deployment configuration, BigQuery streaming inserts/quarantine, Cloud Monitoring policy definitions, and cost controls. Use “implemented” or “locally validated,” not “deployed” or “operated,” until a retained live GCP run supports those verbs.
+
 This map links truthful resume keywords to concrete implementation evidence. It is not a recommendation to paste every keyword into one resume.
 
 | Keyword | Implemented evidence | Best resume context |
@@ -51,4 +53,4 @@ This map links truthful resume keywords to concrete implementation evidence. It 
 
 ## Intentionally excluded
 
-The repository does not implement Kafka, streaming, Kubernetes, Dataflow, Databricks, Snowflake, Redshift, machine learning, SCD Type 2, or a production CDC system. Do not add those terms for keyword matching.
+The repository implements local Kafka-compatible streaming and an opt-in Dataflow definition, but not production/live operation. It does not implement Kubernetes, Databricks, Snowflake, Redshift, machine learning, SCD Type 2, or a production CDC system. Do not add unsupported terms for keyword matching.

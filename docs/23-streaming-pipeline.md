@@ -20,6 +20,6 @@ The producer accepts event count, rate, seed, invalid, duplicate, and late-event
 
 Invalid rows go to quarantine. Valid duplicate IDs are removed inside each Spark micro-batch. The optional host-side BigQuery loader deduplicates the entire staged input and uses `MERGE` on `transaction_id`, so same inputs update/insert rather than append duplicates. Local silver files are audit artifacts and do not claim global uniqueness across independently reset checkpoints.
 
-Generated paths are `data/streaming/{bronze,silver,quarantine,metrics,checkpoints}/transaction_events`. The BigQuery table and three dbt streaming models are optional: `dbt ... --vars '{enable_streaming_models: true}'`. Defaults preserve the verified v1.1 graph at 15 models/37 tests; opt-in streaming expands it to 18 models/50 tests.
+Generated paths are `data/streaming/{bronze,silver,quarantine,metrics,checkpoints}/transaction_events`. The BigQuery table and four dbt streaming models are optional: `dbt ... --vars '{enable_streaming_models: true}'`. Version 1.4 defaults preserve the verified graph at 15 models/37 tests; local streaming parses 19 models/57 tests, while the separate GCP source mode parses 19 models/58 tests.
 
 Limitations: one broker, one topic partition, local Spark, no throughput/SLA claim, and no executed live BigQuery streaming claim unless separately evidenced.

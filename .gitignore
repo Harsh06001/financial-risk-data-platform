@@ -5,6 +5,8 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+build/
+dist/
 .venv/
 .venv-dbt/
 .venv-dbt2/
@@ -24,6 +26,7 @@ observability/results/*
 alerts/results/*
 !alerts/results/.gitkeep
 streaming/logs/
+gcp_streaming/logs/
 
 # dbt and Airflow
 .dbt/

@@ -41,3 +41,24 @@ sequenceDiagram
 ```
 
 All subprocess stages use nonzero exit status for linear failure propagation.
+
+## Version 1.4 opt-in GCP streaming branch
+
+The existing batch and local Redpanda/Spark paths remain intact. Version 1.4 adds a separately enabled deployment definition:
+
+```mermaid
+flowchart LR
+    A[Synthetic producer] --> B[Pub/Sub topic]
+    B --> C[Dataflow subscription]
+    C --> D[Beam validation and routing]
+    D -->|valid| E[BigQuery streaming events]
+    D -->|invalid/write failure| F[BigQuery quarantine]
+    D --> G[BigQuery observations]
+    E --> H[Opt-in dbt streaming marts]
+    D --> I[Dataflow user counters]
+    B --> J[Pub/Sub backlog metric]
+    I --> K[Optional Cloud Monitoring alerts]
+    J --> K
+```
+
+Terraform defaults every v1.4 creation flag to false. The short demo uses one worker and 1,000 events, requires cost acknowledgement, and cancels only jobs named `financial-risk-v14-demo-*`. This branch is implemented and locally parsed/tested but is not represented as a live-verified or production deployment.

@@ -1,4 +1,4 @@
-{{ config(enabled=var('enable_streaming_models', false)) }}
+{{ config(enabled=(var('enable_streaming_models', false) or var('enable_gcp_streaming_models', false))) }}
 
 with staged as (
     select event_date, count(*) as expected_event_count
