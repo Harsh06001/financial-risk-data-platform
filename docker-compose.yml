@@ -1,0 +1,64 @@
+name: financial-risk-platform
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.12
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:29092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:29092,external://localhost:19092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    ports:
+      - "19092:19092"
+      - "19644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  topic-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.12
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        rpk topic create ${KAFKA_TOPIC:-transaction-events}
+        --brokers redpanda:29092 --partitions 1 --replicas 1 ||
+        rpk topic describe ${KAFKA_TOPIC:-transaction-events}
+        --brokers redpanda:29092
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      topic-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-transaction-events}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-risk-data-platform-npg-2026}
+      GCP_LOCATION: ${GCP_LOCATION:-us-central1}
+      DBT_DATASET: ${DBT_DATASET:-risk_analytics}
+      ALERT_MIN_SEVERITY: ${ALERT_MIN_SEVERITY:-WARNING}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - ./data:/app/data
+      - ./observability/results:/app/observability/results
+      - ./alerts/results:/app/alerts/results
+    command: ["sleep", "infinity"]
+
+volumes:
+  redpanda-data:

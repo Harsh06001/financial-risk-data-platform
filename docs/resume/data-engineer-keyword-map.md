@@ -1,5 +1,15 @@
 # Data Engineer Keyword Map
 
+## Version 1.2 Evidence
+
+| Keyword | Evidence | Claim boundary |
+|---|---|---|
+| Kafka / Redpanda | Single-broker Compose service and deterministic `transaction-events` producer | Controlled local simulation, not production Kafka |
+| Spark Structured Streaming | Explicit schema, checkpoints, bounded trigger, `foreachBatch`, quarantine and reconciliation | Local implementation, no throughput/SLA claim |
+| Data observability | Range/freshness helpers and batch/dbt/stream metrics contract | Lightweight portfolio checks |
+| Alerting | Console, ignored JSON, optional environment-supplied Slack webhook | Not paging or incident management |
+| CI/CD | Credential-free checks, Docker build, manual GCP workflow | Repository workflows, not enterprise deployment |
+
 This map links truthful resume keywords to concrete implementation evidence. It is not a recommendation to paste every keyword into one resume.
 
 | Keyword | Implemented evidence | Best resume context |

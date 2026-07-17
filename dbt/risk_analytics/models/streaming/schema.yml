@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: stg_streaming_transaction_events
+    description: Clean, opt-in view over controlled streaming transaction events.
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: event_date
+        tests:
+          - not_null
+      - name: event_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['authorization', 'purchase', 'refund']
+      - name: amount
+        tests:
+          - not_null
+
+  - name: mart_streaming_risk_summary
+    description: Daily summary for the opt-in streaming simulation layer.
+    columns:
+      - name: event_date
+        tests:
+          - not_null
+          - unique

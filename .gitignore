@@ -8,13 +8,22 @@ __pycache__/
 .venv/
 .venv-dbt/
 .venv-dbt2/
+.venv-v12/
 venv/
 .env
+.env.local
 
 # Generated data
 data/
 *.csv
 *.parquet
+
+# Streaming, observability, and alert runtime output
+observability/results/*
+!observability/results/.gitkeep
+alerts/results/*
+!alerts/results/.gitkeep
+streaming/logs/
 
 # dbt and Airflow
 .dbt/

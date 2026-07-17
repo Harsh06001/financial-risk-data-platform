@@ -1,5 +1,7 @@
 # Failure Scenarios
 
+Version 1.2 adds explicit failure surfaces for broker health, Kafka connector resolution, malformed events, checkpoint access, micro-batch reconciliation, host-side BigQuery staging/`MERGE`, missing optional dbt sources, observation bounds, and optional Slack delivery. Missing generated metrics are warnings; reconciliation or contract breaches are failures. See the [operations runbook](27-v1-2-operations-runbook.md).
+
 | Failure | Detection | Result |
 |---|---|---|
 | Invalid/missing raw fields | CSV validator and Spark schema/filters | pipeline exits |

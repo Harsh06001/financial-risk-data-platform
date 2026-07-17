@@ -1,0 +1,9 @@
+version: 1
+minimum_severity: "${ALERT_MIN_SEVERITY:-WARNING}"
+channels:
+  console: true
+  json_file: true
+  slack_webhook_env: SLACK_WEBHOOK_URL
+statuses_that_alert:
+  - WARN
+  - FAIL

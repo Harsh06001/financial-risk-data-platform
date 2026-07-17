@@ -1,5 +1,7 @@
 # Airflow Orchestration
 
+Version 1.2 leaves `risk_pipeline_dag` unchanged and adds `risk_observability_dag` on an hourly, non-catchup schedule. Its three collectors run in parallel, followed by `evaluate_alert_rules` and `emit_alerts`; every task retries once after 30 seconds. The BigQuery collector requires the same local ADC/CLI setup as warehouse validation. This is static/local orchestration code, not a claim of an operating production scheduler.
+
 The daily DAG is a linear full-batch graph:
 
 ```mermaid

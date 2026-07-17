@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-dev.txt -r requirements-dbt.txt
+      - name: Repository validation
+        run: python scripts/validate_repository.py
+      - name: Unit tests
+        run: python -m pytest tests -q
+      - name: Parse default dbt graph
+        run: dbt parse --no-partial-parse --project-dir dbt/risk_analytics --profiles-dir dbt/risk_analytics
+      - name: Parse opt-in streaming dbt graph
+        run: >-
+          dbt parse --no-partial-parse
+          --project-dir dbt/risk_analytics
+          --profiles-dir dbt/risk_analytics
+          --vars '{enable_streaming_models: true}'
+      - name: Compile Python
+        run: python -m compileall -q airflow alerts batch-processing benchmarks cloud data-generator observability pipeline scripts streaming warehouse
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform format
+        run: terraform -chdir=infrastructure/terraform fmt -check -recursive
+      - name: Terraform initialize without backend
+        run: terraform -chdir=infrastructure/terraform init -backend=false -input=false
+      - name: Terraform validate
+        run: terraform -chdir=infrastructure/terraform validate
+      - name: Whitespace errors
+        run: git diff --check

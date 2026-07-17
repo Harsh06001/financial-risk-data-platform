@@ -1,5 +1,7 @@
 # End-to-End Architecture
 
+Version 1.2 adds a deliberately separate simulation path: deterministic events flow through Redpanda and bounded Spark Structured Streaming into local bronze/silver/quarantine artifacts, with an optional host-side BigQuery `MERGE` and opt-in dbt models. Lightweight observations feed console/file/optional Slack alerts. This extension does not change the canonical v1.1 batch path or its evidence; see [the streaming design](23-streaming-pipeline.md).
+
 ```mermaid
 flowchart TD
     A[Raw CSV] --> B{Run mode}

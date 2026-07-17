@@ -1,5 +1,7 @@
 # Learning Path
 
+After completing the v1.1 batch, warehouse, incremental, dbt, and Airflow sections, continue with [Docker/local development](22-docker-and-local-development.md), [streaming](23-streaming-pipeline.md), [observability/alerting](24-data-observability-and-alerting.md), [CI/CD](25-ci-cd.md), [deployment](26-deployment-guide.md), and the [operations runbook](27-v1-2-operations-runbook.md).
+
 Each module should end with an explanation in your own words and one small code or query exercise.
 
 | Module | Read | Run | Be able to answer / exercise |

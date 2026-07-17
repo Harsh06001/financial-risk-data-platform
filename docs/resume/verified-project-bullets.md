@@ -2,6 +2,19 @@
 
 These bullets describe the Financial Risk Data Platform project, not professional production experience. Select two or three bullets that match the target role rather than using every option.
 
+## Version 1.2 Evidence — VERIFIED IN REPOSITORY
+
+- Added a Dockerized local development configuration with a single Kafka-compatible Redpanda broker, reproducible Make commands, mounted generated-data volumes, and documented local/cloud-enabled modes.
+- Built a controlled Spark Structured Streaming path with an explicit transaction schema, bounded execution, checkpointing, invalid-record quarantine, per-micro-batch duplicate handling, reconciliation metrics, and an optional staged BigQuery `MERGE`.
+- Implemented local-first data observations and console/JSON/optional Slack alert channels, plus a separate five-task Airflow monitoring DAG.
+- Added credential-free GitHub Actions validation, a no-push Docker build workflow, and a manual credential-gated GCP integration workflow.
+
+Only use runtime wording (for example, “verified Docker build” or “loaded streaming data into BigQuery”) when a retained execution result supports it.
+
+### DO NOT CLAIM
+
+Production streaming, production monitoring/alerting, enterprise CI/CD, managed Kafka/Spark/Airflow, Kubernetes, real-time fraud detection, measured streaming throughput, or professional production use.
+
 ## Evidence rules
 
 - `VERIFIED` means the repository contains an implementation and a successful command result or tracked evidence artifact.

@@ -1,5 +1,11 @@
 # Resume Evidence
 
+## Version 1.2 evidence
+
+Repository-verifiable implementation includes a Docker/Redpanda local configuration, deterministic producer, bounded Spark Structured Streaming consumer, optional idempotent BigQuery `MERGE` loader, two opt-in dbt models with eight tests, observation and alert utilities, a separate monitoring DAG, and three GitHub Actions workflows. Runtime claims must be limited to checks actually recorded in a final verification report.
+
+Do not claim production streaming, production monitoring/alerting, enterprise CI/CD, Kubernetes, managed Airflow, real-time fraud detection, or measured streaming throughput.
+
 Use a claim only when the cited artifact or command result supports it.
 
 | Claim | Evidence |

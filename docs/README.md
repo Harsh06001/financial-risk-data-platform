@@ -1,5 +1,14 @@
 # Documentation Index
 
+Version 1.2 extensions:
+
+- [22 — Docker and local development](22-docker-and-local-development.md)
+- [23 — Controlled streaming pipeline](23-streaming-pipeline.md)
+- [24 — Data observability and alerting](24-data-observability-and-alerting.md)
+- [25 — CI/CD](25-ci-cd.md)
+- [26 — Deployment guide](26-deployment-guide.md)
+- [27 — Operations runbook](27-v1-2-operations-runbook.md)
+
 This documentation explains the implemented repository rather than a hypothetical platform. Start with [LEARNING_PATH.md](LEARNING_PATH.md), then use the numbered chapters as references.
 
 1. [Project overview](00-project-overview.md)

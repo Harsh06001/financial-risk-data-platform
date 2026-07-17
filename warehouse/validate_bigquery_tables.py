@@ -1,12 +1,13 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 
-PROJECT_ID = "risk-data-platform-npg-2026"
-LOCATION = "us-central1"
-DATASET_ID = "risk_analytics"
+PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "risk-data-platform-npg-2026")
+LOCATION = os.environ.get("GCP_LOCATION", "us-central1")
+DATASET_ID = os.environ.get("DBT_DATASET", "risk_analytics")
 
 
 class ValidationError(RuntimeError):

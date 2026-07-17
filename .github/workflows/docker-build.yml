@@ -1,0 +1,42 @@
+name: Docker Build
+
+on:
+  push:
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - requirements.txt
+      - requirements-streaming.txt
+      - requirements-dbt.txt
+      - requirements-dev.txt
+      - streaming/**
+      - docker/**
+      - .github/workflows/docker-build.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - requirements.txt
+      - requirements-streaming.txt
+      - requirements-dbt.txt
+      - requirements-dev.txt
+      - streaming/**
+      - docker/**
+      - .github/workflows/docker-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: financial-risk-data-platform:v1.2-ci

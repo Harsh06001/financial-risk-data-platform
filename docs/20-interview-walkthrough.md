@@ -1,5 +1,7 @@
 # Interview Walkthrough
 
+For v1.2, explain the boundary first: the verified batch warehouse remains canonical, while streaming is a bounded Kafka-compatible simulation. Walk through explicit schema enforcement, quarantine, per-batch deduplication and reconciliation, checkpoints, staged BigQuery `MERGE`, opt-in dbt models, local-first observations, and credential-free CI. Be ready to distinguish implemented code from services not executable in the current environment and from production improvements.
+
 Use this sequence for a 10–15 minute explanation:
 
 1. State the problem: trustworthy batch risk analytics from transaction events.

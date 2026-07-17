@@ -1,5 +1,9 @@
 # Resume Strategy
 
+## Version 1.2 positioning
+
+Describe v1.2 as a personal portfolio extension. Lead with the design boundary—verified canonical batch pipeline plus a controlled streaming simulation—and name only executed verification when supported. Prefer “implemented” or “built a local demo” over “operated,” “deployed,” or “productionized.” Never blend this GCP/Redpanda/dbt/Airflow work into professional experience unless it actually occurred there.
+
 Maintain one factual experience inventory and tailor emphasis to each job description. ATS fit is job-specific; there is no defensible universal “85 ATS” version.
 
 ## 1. AWS / Spark Data Engineer

@@ -1,6 +1,6 @@
-# Financial Risk Data Platform
+# Financial Risk Data Platform — Version 1.2
 
-A batch-oriented GCP data engineering portfolio project with schema-enforced PySpark processing, partitioned Parquet, guarded GCS synchronization, native BigQuery warehousing, dbt dimensional modeling, Airflow orchestration, and Terraform-managed infrastructure.
+A GCP data engineering portfolio project with a verified batch warehouse and incremental pipeline, extended in v1.2 by a controlled Kafka-compatible streaming simulation, Docker local environment, lightweight observability/alerting, and CI workflows. It is not presented as production infrastructure or professional production experience.
 
 ## Architecture
 
@@ -20,6 +20,14 @@ flowchart LR
     K --> L[fct_transactions + dimensions]
     L --> M[Risk marts]
     E -.-> N[BigQuery external-table demonstration]
+    O[Deterministic event producer] --> P[Redpanda transaction-events]
+    P --> Q[Bounded Spark Structured Streaming]
+    Q --> R[Bronze / silver / quarantine + checkpoints]
+    R -. optional staged MERGE .-> I
+    I --> S[Opt-in streaming dbt models]
+    I --> T[Observability]
+    R --> T
+    T --> U[Console / JSON / optional Slack]
 ```
 
 The dimensional core contains `fct_transactions` at one row per `transaction_id`, `dim_customer` at one row per `customer_id`, `dim_merchant` at one row per `merchant_id`, and `dim_date` at one row per observed `event_date`. Stable source natural keys are used; v1.1 intentionally models current state rather than SCD Type 2 history.
@@ -41,6 +49,21 @@ One-date incremental pipeline—dynamic partition overwrite, exact partition syn
 ```
 
 The same event date can be rerun safely. The warehouse `MERGE` matches on `transaction_id`, updates matched rows, and inserts new rows.
+
+Version 1.2 local streaming demo:
+
+```bash
+make setup
+make stream-up
+make stream-produce
+make stream-process
+make stream-validate
+make observe
+make alert-demo
+make docker-down
+```
+
+The `transaction-events` topic has one partition for deterministic local behavior. The streaming producer/consumer is deliberately separate from canonical batch data. BigQuery loading is an explicit host-side operation, and streaming dbt models are disabled by default so the existing 15-model/37-test graph remains unchanged. With a populated streaming source, `--vars '{enable_streaming_models: true}'` enables 17 models/45 tests.
 
 Useful verification commands:
 
@@ -74,6 +97,8 @@ These are local `Spark local[*]` results on the recorded 8-CPU environment, not 
 
 Start with the [documentation index](docs/README.md) or the guided [learning path](docs/LEARNING_PATH.md). The deep documentation covers architecture, contracts, every major file and function, Spark internals, GCS safety, BigQuery, dimensional modeling, incremental MERGE behavior, dbt, Airflow, scale tests, failure scenarios, production trade-offs, interview preparation, and claim-safe [resume evidence](docs/resume/verified-project-bullets.md).
 
+Version 1.2 operations begin with [Docker/local development](docs/22-docker-and-local-development.md), [streaming](docs/23-streaming-pipeline.md), [observability and alerting](docs/24-data-observability-and-alerting.md), [CI/CD](docs/25-ci-cd.md), [deployment modes](docs/26-deployment-guide.md), and the [runbook](docs/27-v1-2-operations-runbook.md).
+
 ## Known limitations
 
 - This is a local-development portfolio system, not a production SLA or distributed-cluster benchmark.
@@ -82,4 +107,7 @@ Start with the [documentation index](docs/README.md) or the guided [learning pat
 - The incremental transaction fact uses a processed timestamp watermark; a full refresh remains available for historical rebuilds.
 - Dimensions are current-state natural-key models, not SCD Type 2 history.
 - Airflow DAG syntax and task wiring are repository-validated, but an Airflow scheduler runtime is not bundled with the project.
+- Streaming is a bounded single-broker/local-Spark simulation; no throughput, SLA, or production real-time claim is made.
+- The optional streaming BigQuery loader and streaming dbt models require an explicitly populated cloud source and are not part of default v1.1 execution.
+- Console/JSON observations and optional Slack are lightweight portfolio alerting, not a production paging system.
 - The isolated late-arrival demonstration creates dedicated cloud test resources; this work does not delete cloud datasets or buckets.
