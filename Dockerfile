@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -6,8 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends openjdk-17-jre-headless make \
-    && apt-get clean
+    && apt-get install --yes --no-install-recommends \
+        ca-certificates \
+        curl \
+        make \
+        default-jre-headless \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
